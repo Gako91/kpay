@@ -50,9 +50,12 @@ fn main() {
 	services.log_info('  GET  /health     - Health check')
 	services.log_info('  GET  /employees  - Liste employés')
 	services.log_info('  POST /employees  - Créer employé')
+	services.log_info('  GET  /contracts/:employee_id - Contrat actif')
+	services.log_info('  POST /contracts  - Créer contrat')
 	services.log_info('  POST /payroll/calculate - Calculer paie')
 	services.log_info('  POST /payroll/run       - Générer & sauvegarder la paie mensuelle')
-	services.log_info('  GET  /payslips/:id      - Consulter un bulletin')
+	services.log_info('  GET  /payslips/:id      - Consulter un bulletin (JSON)')
+	services.log_info('  GET  /payslips/:id/pdf  - Télécharger un bulletin (PDF)')
 	services.log_info('  POST /payslips/:id/pay  - Marquer un bulletin payé')
 
 	veb.run[api.App, api.Context](mut app, config.port)

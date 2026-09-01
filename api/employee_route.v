@@ -4,6 +4,7 @@ import models
 import json2
 import veb
 import dto
+import time
 
 // GET /employees
 @['/employees']
@@ -66,4 +67,44 @@ pub fn (app &App) get_contract(mut ctx Context, employee_id int) veb.Result {
 		return ctx.json(dto.error_response('Aucun contrat actif'))
 	}
 	return ctx.json(contract)
+}
+
+// POST /contracts - Créer un contrat pour un employé
+@['/contracts'; post]
+pub fn (mut app App) create_contract(mut ctx Context) veb.Result {
+	body := ctx.req.data
+	contract := json2.decode[models.Contract](body) or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('JSON invalide'))
+	}
+
+	dto.validate_contract(contract) or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+
+	// Vérifier que l'employé existe
+	app.employee_svc.get_by_id(contract.employee_id) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Employé introuvable (id: ${contract.employee_id})'))
+	}
+
+	// Forcer start_date à aujourd'hui si non fourni (time.Time{} = zéro invalide pour PostgreSQL)
+	effective_start := if contract.start_date.year > 0 {
+		contract.start_date
+	} else {
+		time.now()
+	}
+	ready := models.Contract{
+		...contract
+		start_date: effective_start
+	}
+
+	new_id := app.contract_svc.create(ready) or {
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+
+	ctx.res.set_status(.created)
+	return ctx.json(dto.ApiResponse{ success: true, data: '${new_id}', message: 'Contrat créé' })
 }

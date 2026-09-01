@@ -1,1 +1,16 @@
-Nothing needs to be ignored since only a README.md file was added, which is a source/config file and not a build artifact, dependency, or temporary file.
+# Environment & IDE
+.env
+.idea/
+.velvet/
+
+# Binaries & build artifacts
+main
+main.so
+kpay
+*.db
+
+# Generated outputs
+*.pdf
+storage/payslips/*.pdf
+
+

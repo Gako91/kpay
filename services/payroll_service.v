@@ -35,8 +35,8 @@ pub fn (mut s PayrollService) run_monthly_payroll(month int, year int) ![]models
 		// 4. Récupérer les ajustements du mois pour cet employé (filtrés par période)
 		adjustments := s.repo.get_adjustments_for_period(emp.id, month, year)
 
-		// 5. Calculer
-		result := core.calculate_pay(contract, rules, adjustments)
+		// 5. Calculer la paie complète (CNPS, CMU, IS, CN, IGR avec quotient familial)
+		result := core.calculate_pay_full_ci(contract, rules, adjustments, emp.tax_parts)
 
 		// 6. Créer le bulletin (Payslip)
 		period_start := time.Time{
@@ -116,4 +116,3 @@ pub fn (mut s PayrollService) mark_paid(payslip_id int) ! {
 	mut queue := new_notification_queue()
 	queue.push(notify_payment_processed(emp.email, payslip.id, payslip.net_amount))
 }
-

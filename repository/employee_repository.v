@@ -43,7 +43,7 @@ pub fn (mut r Repository) create_employee(emp models.Employee) !int {
 pub fn (mut r Repository) update_employee(emp models.Employee) ! {
 	sql r.db {
 		update models.Employee set first_name = emp.first_name, last_name = emp.last_name,
-		email = emp.email, is_active = emp.is_active where id == emp.id
+		email = emp.email, iban = emp.iban, bic = emp.bic, is_active = emp.is_active where id == emp.id
 	}!
 }
 

@@ -59,7 +59,18 @@ pub fn validate_employee(emp models.Employee) ! {
 	validate_email(emp.email)!
 }
 
-// ==================== PAYROLL ====================
+// ==================== CONTRACTS ====================
+
+// validate_contract valide les champs d'un contrat avant création
+pub fn validate_contract(c models.Contract) ! {
+	validate_id(c.employee_id, 'employee_id')!
+	if c.base_salary <= 0 {
+		return error("Validation échouée : 'base_salary' doit être supérieur à 0")
+	}
+	if c.hourly_rate < 0 {
+		return error("Validation échouée : 'hourly_rate' ne peut pas être négatif")
+	}
+}
 
 // validate vérifie les champs d'une requête de calcul de paie individuelle
 pub fn (r PayrollRequest) validate() ! {
