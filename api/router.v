@@ -14,6 +14,7 @@ pub mut:
 	api_key      string // Clé API pour l'authentification
 	employee_svc services.EmployeeService // Service employés
 	contract_svc services.ContractService // Service contrats
+	storage_svc  services.StorageService // Service stockage MinIO / S3
 }
 
 // Contexte par requête

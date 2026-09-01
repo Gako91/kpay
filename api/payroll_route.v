@@ -129,32 +129,41 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 	adjustments := app.repo.get_adjustments_for_period(emp.id, payslip.period_start.month, payslip.period_start.year)
 	calc_res := core.calculate_pay_full_ci(contract, cnps_rules, adjustments, emp.tax_parts)
 
-	// Génération + stockage sur disque (idempotent : réutilise le fichier existant)
-	pdf_path := services.generate_and_store_payslip_pdf(payslip, emp, contract, calc_res.tax_details) or {
-		services.log_error('Erreur génération PDF bulletin ${id}: ${err}')
-		ctx.res.set_status(.internal_server_error)
-		return ctx.json(dto.error_response('Erreur lors de la génération du PDF'))
-	}
+	object_name := 'bulletin_${id}.pdf'
+	mut pdf_bytes := []u8{}
 
-	// Mettre à jour pdf_path en base si ce n'est pas encore fait
-	if payslip.pdf_path.len == 0 {
-		app.repo.update_payslip_pdf_path(id, pdf_path) or {
-			// Non bloquant : on log mais on continue à servir le fichier
-			services.log_warn('Impossible de mettre à jour pdf_path pour bulletin ${id}: ${err}')
+	// Tenter de récupérer depuis MinIO en priorité
+	pdf_bytes = app.storage_svc.download_file(object_name) or {
+		// Si absent de MinIO, générer le PDF et l'uploader vers MinIO
+		gen_path := services.generate_and_store_payslip_pdf_minio(payslip, emp, contract, calc_res.tax_details, &app.storage_svc) or {
+			services.log_error('Erreur génération PDF bulletin ${id}: ${err}')
+			ctx.res.set_status(.internal_server_error)
+			return ctx.json(dto.error_response('Erreur lors de la génération du PDF'))
+		}
+		if payslip.pdf_path.len == 0 {
+			app.repo.update_payslip_pdf_path(id, gen_path) or {
+				services.log_warn('Impossible de mettre à jour pdf_path pour bulletin ${id}: ${err}')
+			}
+		}
+		// Télécharger à nouveau ou lire depuis cache
+		app.storage_svc.download_file(object_name) or {
+			local_path := 'storage/payslips/${object_name}'
+			os.read_file(local_path) or {
+				ctx.res.set_status(.internal_server_error)
+				return ctx.json(dto.error_response('Fichier PDF introuvable après génération'))
+			}.bytes()
 		}
 	}
 
-	// Lire les bytes depuis le fichier pour un envoi binaire correct
-	// (évite la corruption UTF-8 qu'entraînerait ctx.text() sur des bytes bruts)
-	pdf_bytes := os.read_file(pdf_path) or {
+	if pdf_bytes.len == 0 {
 		ctx.res.set_status(.internal_server_error)
-		return ctx.json(dto.error_response('Fichier PDF introuvable après génération'))
+		return ctx.json(dto.error_response('Fichier PDF vide ou introuvable'))
 	}
 
 	ctx.res.header.set(.content_type, 'application/pdf')
 	ctx.res.header.set_custom('Content-Disposition', 'inline; filename="bulletin_${id}.pdf"') or {}
-	// send_response_to_client envoie les bytes bruts sans ré-encodage UTF-8
-	return ctx.send_response_to_client('application/pdf', pdf_bytes)
+	// send_response_to_client envoie les bytes bruts sous forme de string sans ré-encodage UTF-8
+	return ctx.send_response_to_client('application/pdf', pdf_bytes.bytestr())
 }
 
 // run_payroll POST /payroll/run - Génère et sauvegarde la paie mensuelle de tous les employés

@@ -94,7 +94,7 @@ KPAY_API_KEY=votre_cle_api_secrete
 
 ### Prérequis
 
-- **V language** ≥ 0.4.x ([Installation](https://vlang.io))
+- **V language** ≥ 0.5.x ([Installation](https://vlang.io))
 - **PostgreSQL** ≥ 12.x
 - **veb** : Framework web V (dépendance externe)
 

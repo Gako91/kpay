@@ -30,11 +30,15 @@ fn main() {
 
 	services.log_info('Base de données initialisée')
 
+	storage_svc := services.new_storage_service(config)
+	services.log_info('Stockage MinIO configuré (bucket: ${config.minio_bucket})')
+
 	mut app := &api.App{
 		repo: repo
 		api_key: config.api_key
 		employee_svc: services.new_employee_service(mut repo)
 		contract_svc: services.new_contract_service(mut repo)
+		storage_svc: storage_svc
 	}
 
 	// Enregistrement du middleware d'authentification (s'applique à toutes les routes)

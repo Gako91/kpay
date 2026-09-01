@@ -399,3 +399,30 @@ pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, con
 
 	return filepath
 }
+
+// generate_and_store_payslip_pdf_minio génère le PDF, le sauvegarde dans MinIO et sur disque (cache)
+pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, storage &StorageService) !string {
+	object_key := 'bulletin_${p.id}.pdf'
+
+	// Générer les octets du PDF
+	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details)!
+
+	// Upload vers MinIO
+	s3_key := storage.upload_file(object_key, pdf_bytes) or {
+		services_log_warn('Upload MinIO échoué, fallback fichier local: ${err}')
+		''
+	}
+
+	// Cache local optionnel
+	os.mkdir_all(pdf_dir) or {}
+	os.write_file_array('${pdf_dir}/${object_key}', pdf_bytes) or {}
+
+	if s3_key.len > 0 {
+		return s3_key
+	}
+	return '${pdf_dir}/${object_key}'
+}
+
+fn services_log_warn(msg string) {
+	log_warn(msg)
+}
