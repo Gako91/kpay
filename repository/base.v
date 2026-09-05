@@ -40,6 +40,7 @@ fn (mut r Repository) init_tables() ! {
 		create table models.Timesheet
 		create table models.Adjustment
 		create table models.Payslip
+		create table models.User
 	}!
 
 	// Auto-migrations pour faire évoluer le schéma PostgreSQL existant

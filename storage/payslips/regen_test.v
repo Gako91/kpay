@@ -35,9 +35,13 @@ fn main() {
 		core.TaxLine{ name: 'CNPS Retraite (part salariale)', amount: 16480 },
 		core.TaxLine{ name: 'CNPS Maladie-Maternite (part salariale)', amount: 3000 },
 	]
+	employer_details := [
+		core.TaxLine{ name: 'CNPS Retraite (part patronale)', amount: 30800 },
+	]
+	employer_total := i64(30800)
 
 	// regen
-	path := services.generate_and_store_payslip_pdf(payslip, emp, contract, tax_details) or {
+	path := services.generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, employer_total) or {
 		println('Erreur: ${err}')
 		return
 	}

@@ -14,6 +14,14 @@ pub:
 	environment string // dev, staging, prod
 	log_level   string // debug, info, warn, error
 	api_key     string // Clé d'authentification API (header X-Api-Key)
+	// JWT Authentication
+	jwt_secret            string // Clé secrète de signature des tokens JWT
+	jwt_expiration_hours  int // Durée de validité des tokens (heures)
+	// CORS
+	cors_origins string // Origines autorisées (séparées par des virgules)
+	// Rate limiting
+	rate_limit_max    int // Nombre max de requêtes par fenêtre (0 = désactivé)
+	rate_limit_window int // Fenêtre de temps en secondes
 	// MinIO / S3 Storage
 	minio_endpoint   string // ex: http://minio:9000
 	minio_access_key string
@@ -66,6 +74,11 @@ pub fn load_config() Config {
 		environment: os.getenv_opt('KPAY_ENV') or { 'dev' }
 		log_level: os.getenv_opt('KPAY_LOG_LEVEL') or { 'info' }
 		api_key: os.getenv_opt('KPAY_API_KEY') or { '' }
+		jwt_secret: os.getenv_opt('KPAY_JWT_SECRET') or { '' }
+		jwt_expiration_hours: os.getenv_opt('KPAY_JWT_EXPIRATION_HOURS') or { '24' }.int()
+		cors_origins: os.getenv_opt('KPAY_CORS_ORIGINS') or { '*' }
+		rate_limit_max: os.getenv_opt('KPAY_RATE_LIMIT_MAX') or { '300' }.int()
+		rate_limit_window: os.getenv_opt('KPAY_RATE_LIMIT_WINDOW') or { '60' }.int()
 		minio_endpoint: os.getenv_opt('MINIO_ENDPOINT') or { 'http://localhost:9000' }
 		minio_access_key: os.getenv_opt('MINIO_ACCESS_KEY') or { 'minioadmin' }
 		minio_secret_key: os.getenv_opt('MINIO_SECRET_KEY') or { 'minioadmin' }

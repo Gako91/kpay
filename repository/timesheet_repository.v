@@ -21,6 +21,18 @@ pub fn (mut r Repository) create_timesheet(ts models.Timesheet) !int {
 	return inserted_id
 }
 
+pub fn (mut r Repository) update_timesheet(ts models.Timesheet) ! {
+	sql r.db {
+		update models.Timesheet set hours_worked = ts.hours_worked, overtime_h = ts.overtime_h where id == ts.id
+	}!
+}
+
+pub fn (mut r Repository) delete_timesheet(ts_id int) ! {
+	sql r.db {
+		delete from models.Timesheet where id == ts_id
+	}!
+}
+
 // ==================== ADJUSTMENTS ====================
 
 // get_adjustments_for_period retourne uniquement les ajustements du mois/année indiqués.
@@ -43,4 +55,26 @@ pub fn (mut r Repository) create_adjustment(adj models.Adjustment) !int {
 		insert adj into models.Adjustment
 	}!
 	return inserted_id
+}
+
+pub fn (mut r Repository) update_adjustment(adj models.Adjustment) ! {
+	sql r.db {
+		update models.Adjustment set amount = adj.amount, description = adj.description where id == adj.id
+	}!
+}
+
+pub fn (mut r Repository) delete_adjustment(adj_id int) ! {
+	sql r.db {
+		delete from models.Adjustment where id == adj_id
+	}!
+}
+
+pub fn (r &Repository) get_adjustment_by_id(adj_id int) ?models.Adjustment {
+	result := sql r.db {
+		select from models.Adjustment where id == adj_id limit 1
+	} or { return none }
+	if result.len == 0 {
+		return none
+	}
+	return result[0]
 }

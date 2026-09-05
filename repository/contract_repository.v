@@ -1,22 +1,35 @@
 module repository
 
 import models
+import time
 
 // ==================== CONTRACTS ====================
 
+// get_active_contract retourne le contrat actif le plus récent : un contrat est actif
+// s'il n'a pas de date de fin, ou si sa date de fin est dans le futur.
 pub fn (r &Repository) get_active_contract(emp_id int) ?models.Contract {
-	result := sql r.db {
-		select from models.Contract where employee_id == emp_id order by id desc limit 1
-	} or { return none }
-	if result.len == 0 {
+	contracts := r.get_contracts_by_employee(emp_id)
+	if contracts.len == 0 {
 		return none
 	}
-	return result[0]
+	// get_contracts_by_employee est trié par id desc (le plus récent en premier)
+	for c in contracts {
+		if end := c.end_date {
+			// Contrat avec date de fin : actif si la date de fin est dans le futur
+			if end > time.now() {
+				return c
+			}
+		} else {
+			// Contrat sans date de fin (durée indéterminée) : actif
+			return c
+		}
+	}
+	return none
 }
 
 pub fn (r &Repository) get_contracts_by_employee(emp_id int) []models.Contract {
 	return sql r.db {
-		select from models.Contract where employee_id == emp_id
+		select from models.Contract where employee_id == emp_id order by id desc
 	} or { [] }
 }
 

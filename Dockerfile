@@ -20,7 +20,7 @@ RUN v install pdf
 COPY . .
 
 # Compilation du binaire de production optimisé avec GCC
-RUN v -cc gcc -prod -o /build/kpay main.v
+RUN v -enable-globals -cc gcc -prod -o /build/kpay main.v
 
 # Image d'exécution finale ultra-légère
 FROM alpine:3.20
@@ -34,6 +34,7 @@ RUN apk add --no-cache libpq ca-certificates tzdata \
 # Copie du binaire compilé et des fichiers nécessaires
 COPY --from=builder /build/kpay /app/kpay
 COPY --from=builder /build/migrations /app/migrations
+COPY --from=builder /build/openapi.yaml /app/openapi.yaml
 
 # Port d'écoute par défaut
 EXPOSE 9199

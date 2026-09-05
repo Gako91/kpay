@@ -222,3 +222,23 @@ pub fn calculate_pay_full_ci(contract models.Contract, rules []models.TaxRule, a
 		tax_details: tax_details
 	}
 }
+
+// ==================== COTISATIONS PATRONALES ====================
+
+// calculate_employer_contributions_ci calcule les cotisations patronales (part employeur)
+// à partir des règles fiscales marquées is_employer == true, en appliquant les mêmes
+// plafonds et forfaits que la partie salariale. Retourne liste détaillée + total.
+pub fn calculate_employer_contributions_ci(rules []models.TaxRule, gross i64) ([]TaxLine, i64) {
+	mut details := []TaxLine{}
+	mut total := i64(0)
+	for rule in rules {
+		if rule.is_employer {
+			amount := calculate_tax_amount(gross, rule)
+			if amount > 0 {
+				details << TaxLine{ name: rule.name, amount: amount }
+				total += amount
+			}
+		}
+	}
+	return details, total
+}

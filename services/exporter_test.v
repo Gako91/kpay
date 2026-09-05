@@ -11,7 +11,7 @@ fn test_generate_sepa_xml() {
 			iban: 'CI9301000100123456789001'
 			bic: 'BNFACIXX'
 			recipient_name: 'Koffi Kouamé'
-			amount: 50000000 // 500.000,00 FCFA en centimes
+			amount: 500000 // 500 000 FCFA (unités entières, XOF à 0 décimales)
 			reference: 'SALAIRE-001'
 		},
 	]
@@ -89,8 +89,12 @@ fn test_generate_payslip_pdf() {
 		core.TaxLine{ name: 'CNPS Retraite (part salariale)', amount: 16480 },
 		core.TaxLine{ name: 'CNPS Maladie-Maternite (part salariale)', amount: 3000 },
 	]
+	employer_details := [
+		core.TaxLine{ name: 'CNPS Retraite (part patronale)', amount: 30800 },
+		core.TaxLine{ name: 'CNPS Prestations Familiales (part patronale)', amount: 4025 },
+	]
 
-	pdf_bytes := generate_payslip_pdf(payslip, emp, contract, tax_details) or {
+	pdf_bytes := generate_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 34825) or {
 		assert false, 'generate_payslip_pdf a echoue: ${err}'
 		return
 	}
@@ -135,11 +139,14 @@ fn test_generate_and_store_payslip_pdf() {
 	tax_details := [
 		core.TaxLine{ name: 'CNPS Retraite (part salariale)', amount: 20600 },
 	]
+	employer_details := [
+		core.TaxLine{ name: 'CNPS Retraite (part patronale)', amount: 38500 },
+	]
 
 	// Nettoyer un éventuel fichier résiduel du test précédent
 	os.rm('storage/payslips/bulletin_99.pdf') or {}
 
-	stored_path := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details) or {
+	stored_path := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 38500) or {
 		assert false, 'generate_and_store_payslip_pdf a echoue: ${err}'
 		return
 	}
@@ -148,7 +155,7 @@ fn test_generate_and_store_payslip_pdf() {
 	assert os.exists(stored_path), 'Le fichier PDF doit exister sur disque'
 
 	// Appel idempotent : doit retourner le même chemin sans regénérer
-	stored_path2 := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details) or {
+	stored_path2 := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 38500) or {
 		assert false
 		return
 	}

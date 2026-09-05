@@ -1,16 +1,13 @@
 module common
 
 import rand
-import crypto.md5
+import crypto.bcrypt
 
-// Formate un montant en centimes vers une chaîne lisible
-// Ex: 450000 -> "4 500,00 FCFA"
-pub fn format_money(cents i64, currency string) string {
-	euros := cents / 100
-	remaining_cents := cents % 100
-
-	// Formatage avec séparateur de milliers
-	euros_str := format_with_thousands(euros)
+// Formate un montant entier (en unités de la devise, ex: FCFA) vers une chaîne lisible.
+// Ex: 450000 -> "450 000 FCFA"
+pub fn format_money(amount i64, currency string) string {
+	// Les montants sont stockés en unités entières (pas en centimes)
+	full_str := format_with_thousands(amount)
 
 	symbol := match currency {
 		'EUR' { '€' }
@@ -19,7 +16,7 @@ pub fn format_money(cents i64, currency string) string {
 		else { currency }
 	}
 
-	return '${euros_str},${remaining_cents:02d} ${symbol}'
+	return '${full_str} ${symbol}'
 }
 
 // Ajoute les séparateurs de milliers
@@ -59,9 +56,17 @@ pub fn generate_uuid() string {
 	return '${hex[0..8]}-${hex[8..12]}-${hex[12..16]}-${hex[16..20]}-${hex[20..32]}'
 }
 
-// Génère un hash MD5 pour un mot de passe (à remplacer par bcrypt en prod)
+// Hash un mot de passe avec bcrypt (coût par défaut 10).
 pub fn hash_password(password string) string {
-	return md5.hexhash(password)
+	return bcrypt.generate_from_password(password.bytes(), 10) or { '' }
+}
+
+// verify_password vérifie qu'un mot de passe correspond à un hash bcrypt.
+pub fn verify_password(password string, hashed string) bool {
+	bcrypt.compare_hash_and_password(password.bytes(), hashed.bytes()) or {
+		return false
+	}
+	return true
 }
 
 // Arrondi légal français (0.5 -> valeur supérieure)

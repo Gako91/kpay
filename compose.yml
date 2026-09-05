@@ -9,6 +9,12 @@ services:
       - KPAY_PORT=9199
       - KPAY_ENV=prod
       - KPAY_API_KEY=kpay_secret_key_change_in_production
+      - KPAY_JWT_SECRET=change_this_jwt_secret_in_production
+      - KPAY_JWT_EXPIRATION_HOURS=24
+      - KPAY_CORS_ORIGINS=*
+      - KPAY_LOG_LEVEL=info
+      - KPAY_RATE_LIMIT_MAX=300
+      - KPAY_RATE_LIMIT_WINDOW=60
       - KPAY_DB_HOST=db
       - KPAY_DB_PORT=5432
       - KPAY_DB_USER=kpay_user
@@ -53,11 +59,17 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
 
   createbuckets:
     image: minio/mc:latest
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;

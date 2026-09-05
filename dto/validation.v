@@ -84,3 +84,53 @@ pub fn (r PayrollRunRequest) validate() ! {
 	validate_month(r.month)!
 	validate_year(r.year)!
 }
+
+// ==================== TIMESHEETS ====================
+
+// validate_timesheet vérifie les champs d'un timesheet
+pub fn validate_timesheet(ts models.Timesheet) ! {
+	validate_id(ts.employee_id, 'employee_id')!
+	validate_month(ts.month)!
+	validate_year(ts.year)!
+	if ts.hours_worked < 0 || ts.hours_worked > 744 {
+		return error("Validation échouée : 'hours_worked' doit être compris entre 0 et 744")
+	}
+	if ts.overtime_h < 0 {
+		return error("Validation échouée : 'overtime_h' ne peut pas être négatif")
+	}
+}
+
+// ==================== ADJUSTMENTS ====================
+
+// validate_adjustment vérifie les champs d'un ajustement (prime/retenue)
+pub fn validate_adjustment(a models.Adjustment) ! {
+	validate_id(a.employee_id, 'employee_id')!
+	validate_month(a.month)!
+	validate_year(a.year)!
+	if a.amount == 0 {
+		return error("Validation échouée : 'amount' ne peut pas être nul")
+	}
+	validate_string_field(a.description, 'description', 2, 255)!
+}
+
+// ==================== AUTH ====================
+
+// validate vérifie les champs d'une requête de connexion
+pub fn (r LoginRequest) validate() ! {
+	validate_string_field(r.username, 'username', 3, 100)!
+	if r.password.len < 6 {
+		return error("Validation échouée : 'password' doit contenir au moins 6 caractères")
+	}
+}
+
+// validate vérifie les champs d'une requête d'enregistrement
+pub fn (r RegisterRequest) validate() ! {
+	validate_string_field(r.username, 'username', 3, 100)!
+	if r.password.len < 6 {
+		return error("Validation échouée : 'password' doit contenir au moins 6 caractères")
+	}
+	validate_email(r.email)!
+	if r.role.len > 0 && !['admin', 'payroll_officer', 'accountant', 'employee'].contains(r.role) {
+		return error("Validation échouée : 'role' invalide (admin|payroll_officer|accountant|employee)")
+	}
+}

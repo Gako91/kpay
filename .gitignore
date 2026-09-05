@@ -2,6 +2,7 @@
 .env
 .idea/
 .velvet/
+.vscode/
 
 # Binaries & build artifacts
 main

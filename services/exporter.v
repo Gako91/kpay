@@ -4,6 +4,7 @@ import os
 import json2
 import strings
 import models
+import dto
 import core
 import pdf
 
@@ -116,7 +117,7 @@ pub fn generate_sepa_xml(transfers []SepaTransfer) string {
 	sb.write_string('<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">\n')
 
 	for t in transfers {
-		amount_fmt := f64(t.amount) / 100.0
+		amount_fmt := f64(t.amount)
 		sb.write_string('\t<CdtTrfTxInf>\n')
 		sb.write_string('\t\t<PmtId><EndToEndId>${t.reference}</EndToEndId></PmtId>\n')
 		sb.write_string('\t\t<Amt><InstdAmt Ccy="XOF">${amount_fmt:.2f}</InstdAmt></Amt>\n')
@@ -153,6 +154,18 @@ pub fn generate_payslips_csv(payslips []models.Payslip) string {
 	return sb.str()
 }
 
+pub fn generate_payroll_book_csv(book dto.PayrollBookResponse) string {
+	mut sb := strings.new_builder(2048)
+	sb.write_string('LIVRE DE PAIE - ${book.month}/${book.year}\n')
+	sb.write_string('Bulletin ID,Matricule,Employe,Poste,Salaire Brut (FCFA),Retenues (FCFA),Net a Payer (FCFA),Statut\n')
+	for it in book.items {
+		statut := if it.is_paid { 'PAYE' } else { 'EN ATTENTE' }
+		sb.write_string('${it.payslip_id},"${it.matricule}","${it.full_name}","${it.position}",${it.gross_amount},${it.total_taxes},${it.net_amount},"${statut}"\n')
+	}
+	sb.write_string('TOTAL (${book.total_employees} employes),,,,"${book.total_gross}","${book.total_taxes}","${book.total_net}",\n')
+	return sb.str()
+}
+
 pub fn export_payslips_csv(payslips []models.Payslip, filepath string) ! {
 	content := generate_payslips_csv(payslips)
 	os.write_file(filepath, content)!
@@ -169,10 +182,10 @@ pub:
 	payment_status string
 }
 
+// format_cents formate un montant entier en FCFA avec séparateurs de milliers.
+// Les montants sont stockés en FCFA entiers (pas en centimes).
 fn format_cents(cents i64) string {
-	francs := cents / 100
-	remaining := cents % 100
-	return '${francs},${remaining:02d} FCFA'
+	return format_fcfa(cents)
 }
 
 pub fn payslip_to_export(p models.Payslip, employee_name string) PayslipExport {
@@ -221,7 +234,9 @@ fn format_amount_clean(amount i64) string {
 }
 
 // generate_payslip_pdf génère le bulletin de paie au format professionnel conforme aux standards CI/UEMOA.
-pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine) ![]u8 {
+// Les cotisations patronales (employer_details + employer_total) sont calculées à partir des règles CNPS
+// réelles en base (voir core.calculate_employer_contributions_ci), plus l'approximation ×1.87 figée.
+pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64) ![]u8 {
 	mut doc := pdf.Pdf{}
 	doc.init()
 
@@ -330,56 +345,110 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	table_y -= 6.0
 
 	// Lignes de Cotisations
-	mut total_patronal := i64(0)
+	mut total_patronal := employer_total
+	mut page_idx_mut := page_idx
+	mut sub := table_y
+
+	// Section salariale
+	draw_salari_row(mut doc, page_idx_mut, 'COT SAL.', 'COTISATIONS SALARIALES', p.gross_amount, p.gross_amount, sub, body_fnt, body_bold)
+	sub -= 6.0
+	if sub < 80.0 {
+		page_idx_mut = new_payslip_page(mut doc, header_fnt)
+		sub = 230.0
+	}
 	for i, line in tax_details {
-		rubrique_code := '${400 + i * 10}'
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(rubrique_code, 15, table_y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(line.name), 25, table_y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(p.gross_amount), 95, table_y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(line.amount), 148, table_y, body_fnt))
+		draw_salari_row(mut doc, page_idx_mut, '${400 + (i + 1) * 10}', line.name, p.gross_amount, line.amount, sub, body_fnt, body_bold)
+		sub -= 6.0
+		if sub < 80.0 {
+			page_idx_mut = new_payslip_page(mut doc, header_fnt)
+			sub = 230.0
+		}
+	}
 
-		patronal_amount := i64(f64(line.amount) * 1.87)
-		total_patronal += patronal_amount
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('7.70 %', 172, table_y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(patronal_amount), 188, table_y, body_fnt))
-
-		table_y -= 6.0
+	// Section patronale
+	if employer_details.len > 0 {
+		draw_patronal_row(mut doc, page_idx_mut, 'COT PAT.', 'COTISATIONS PATRONALES', p.gross_amount, total_patronal, sub, body_fnt, body_bold)
+		sub -= 6.0
+		if sub < 80.0 {
+			page_idx_mut = new_payslip_page(mut doc, header_fnt)
+			sub = 230.0
+		}
+	}
+	for i, elk in employer_details {
+		draw_patronal_row(mut doc, page_idx_mut, '${510 + (i + 1) * 10}', elk.name, p.gross_amount, elk.amount, sub, body_fnt, body_bold)
+		sub -= 6.0
+		if sub < 80.0 {
+			page_idx_mut = new_payslip_page(mut doc, header_fnt)
+			sub = 230.0
+		}
 	}
 
 	// ==================== 4. TOTAUX & RECAPITULATIF ====================
 	totaux_y := f32(75.0)
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Total Brut', 15, totaux_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Cotis. Salariales', 55, totaux_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Cotis. Patronales', 100, totaux_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Cout Total Global', 145, totaux_y, header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Total Brut', 15, totaux_y, header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cotis. Salariales', 55, totaux_y, header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cotis. Patronales', 100, totaux_y, header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cout Total Global', 145, totaux_y, header_fnt))
 
 	totaux_val_y := totaux_y - 6.0
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_fcfa(p.gross_amount), 15, totaux_val_y, body_bold))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_fcfa(p.total_taxes), 55, totaux_val_y, body_bold))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_fcfa(total_patronal), 100, totaux_val_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.gross_amount), 15, totaux_val_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.total_taxes), 55, totaux_val_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(total_patronal), 100, totaux_val_y, body_bold))
 	total_global := p.gross_amount + total_patronal
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_fcfa(total_global), 145, totaux_val_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(total_global), 145, totaux_val_y, body_bold))
 
 	// ==================== 5. ENCADRE NET A PAYER ====================
 	net_box_y := f32(45.0)
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('NET A PAYER', 145, net_box_y + 8.0, net_label_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_fcfa(p.net_amount), 145, net_box_y, net_val_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('NET A PAYER', 145, net_box_y + 8.0, net_label_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.net_amount), 145, net_box_y, net_val_fnt))
 
 	status_str := if p.is_paid { 'Statut : PAYE' } else { 'Statut : EN ATTENTE DE VIREMENT' }
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(status_str, 15, net_box_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(status_str, 15, net_box_y, body_bold))
 
 	// ==================== 6. PIED DE PAGE LEGAL ====================
 	legal_text := 'Pour vous aider a faire valoir vos droits, conservez ce bulletin de paie sans limitation de duree.'
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(legal_text), 15, 18, footer_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(sanitize_pdf_text(legal_text), 15, 18, footer_fnt))
 
 	return doc.render()!
+}
+
+// draw_salari_row dessine une ligne de cotisation salariale (gain/base à gauche, retenue salariale).
+fn draw_salari_row(mut doc pdf.Pdf, page_idx int, code string, label string, gross i64, amount i64, y f32, body_fnt pdf.Text_params, body_bold pdf.Text_params) {
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(code, 15, y, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, y, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, y, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 148, y, body_bold))
+}
+
+// draw_patronal_row dessine une ligne de cotisation patronale (retenue patronale à droite).
+fn draw_patronal_row(mut doc pdf.Pdf, page_idx int, code string, label string, gross i64, amount i64, y f32, body_fnt pdf.Text_params, body_bold pdf.Text_params) {
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(code, 15, y, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, y, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, y, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 188, y, body_bold))
+}
+
+// new_payslip_page crée une nouvelle page A4 pour le bulletin et répète les entêtes de colonnes.
+fn new_payslip_page(mut doc pdf.Pdf, header_fnt pdf.Text_params) int {
+	new_idx := doc.create_page(pdf.Page_params{
+		format: 'A4'
+		gen_content_obj: true
+		compress: false
+	})
+	doc.page_list[new_idx].user_unit = pdf.mm_unit
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('N', 15, 230, header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Designation', 25, 230, header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Gain / Brut', 95, 230, header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Retenue Sal.', 148, 230, header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Retenue Patr.', 188, 230, header_fnt))
+	return new_idx
 }
 
 // generate_and_store_payslip_pdf génère le PDF, le sauvegarde sur disque dans
 // pdf_dir/bulletin_<payslip_id>.pdf, et retourne le chemin du fichier.
 // Si le fichier existe déjà (pdf_path non vide dans le Payslip), il est renvoyé directement
 // sans regénération (mise en cache simple par existence de fichier).
-pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine) !string {
+pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64) !string {
 	filepath := '${pdf_dir}/bulletin_${p.id}.pdf'
 
 	// Réutiliser le fichier existant si déjà généré
@@ -392,7 +461,7 @@ pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, con
 		return error('Impossible de créer le dossier PDF (${pdf_dir}): ${err}')
 	}
 
-	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details)!
+	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total)!
 	os.write_file_array(filepath, pdf_bytes) or {
 		return error("Impossible d'écrire le fichier PDF (${filepath}): ${err}")
 	}
@@ -401,11 +470,11 @@ pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, con
 }
 
 // generate_and_store_payslip_pdf_minio génère le PDF, le sauvegarde dans MinIO et sur disque (cache)
-pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, storage &StorageService) !string {
+pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, storage &StorageService) !string {
 	object_key := 'bulletin_${p.id}.pdf'
 
 	// Générer les octets du PDF
-	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details)!
+	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total)!
 
 	// Upload vers MinIO
 	s3_key := storage.upload_file(object_key, pdf_bytes) or {
@@ -421,6 +490,94 @@ pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employe
 		return s3_key
 	}
 	return '${pdf_dir}/${object_key}'
+}
+
+// generate_payroll_book_pdf génère un document PDF récapitulatif du Livre de Paie mensuel
+pub fn generate_payroll_book_pdf(book dto.PayrollBookResponse) ![]u8 {
+	mut doc := pdf.Pdf{}
+	doc.init()
+
+	doc.use_base_font('Helvetica')
+	doc.use_base_font('Helvetica-Bold')
+
+	page_idx := doc.create_page(pdf.Page_params{
+		format: 'A4'
+		gen_content_obj: true
+		compress: false
+	})
+	doc.page_list[page_idx].user_unit = pdf.mm_unit
+
+	title_fnt := pdf.Text_params{
+		font_size: 15.0
+		font_name: 'Helvetica-Bold'
+		s_color: pdf.RGB{ r: -1, g: -1, b: -1 }
+		f_color: pdf.RGB{ r: 0.05, g: 0.15, b: 0.35 }
+	}
+	header_fnt := pdf.Text_params{
+		font_size: 8.5
+		font_name: 'Helvetica-Bold'
+		s_color: pdf.RGB{ r: -1, g: -1, b: -1 }
+		f_color: pdf.RGB{ r: 0.1, g: 0.1, b: 0.1 }
+	}
+	body_fnt := pdf.Text_params{
+		font_size: 7.5
+		font_name: 'Helvetica'
+		s_color: pdf.RGB{ r: -1, g: -1, b: -1 }
+		f_color: pdf.RGB{ r: 0.15, g: 0.15, b: 0.15 }
+	}
+	body_bold := pdf.Text_params{
+		font_size: 7.5
+		font_name: 'Helvetica-Bold'
+		s_color: pdf.RGB{ r: -1, g: -1, b: -1 }
+		f_color: pdf.RGB{ r: 0.0, g: 0.0, b: 0.0 }
+	}
+	footer_fnt := pdf.Text_params{
+		font_size: 7.0
+		font_name: 'Helvetica'
+		s_color: pdf.RGB{ r: -1, g: -1, b: -1 }
+		f_color: pdf.RGB{ r: 0.4, g: 0.4, b: 0.4 }
+	}
+
+	// En-tête
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('KPAY - JOURNAL & LIVRE DE PAIE', 15, 280, title_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Periode : ${book.month:02d}/${book.year}  |  Effectif traite : ${book.total_employees} salarie(s)', 15, 273, header_fnt))
+
+	// Entêtes de colonnes
+	mut y := f32(260.0)
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N', 15, y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Matricule', 25, y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nom & Prenoms', 52, y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Brut (FCFA)', 115, y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenues (FCFA)', 145, y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Net a Payer (FCFA)', 175, y, header_fnt))
+
+	y -= 7.0
+
+	// Lignes salariés
+	for item in book.items {
+		if y < 35.0 {
+			break
+		}
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('${item.payslip_id}', 15, y, body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(item.matricule), 25, y, body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(item.full_name), 52, y, body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.gross_amount), 115, y, body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.total_taxes), 145, y, body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.net_amount), 175, y, body_bold))
+
+		y -= 5.5
+	}
+
+	// Ligne de totalisation
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('MASSE SALARIALE GLOBALE', 52, y - 4, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_gross), 115, y - 4, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_taxes), 145, y - 4, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_net), 175, y - 4, body_bold))
+
+	// Pied de page
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Document comptable officiel et confidentiel genere automatiquement par KPay Payroll Engine.', 15, 15, footer_fnt))
+
+	return doc.render()!
 }
 
 fn services_log_warn(msg string) {

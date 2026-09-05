@@ -104,6 +104,38 @@ pub fn (app &App) get_payslip(mut ctx Context, id int) veb.Result {
 	return ctx.json(payslip)
 }
 
+// GET /payslips - Liste des bulletins, filtrables par période (période courante par défaut)
+@['/payslips']
+pub fn (app &App) list_payslips(mut ctx Context) veb.Result {
+	month := if ctx.query['month'].len > 0 {
+		ctx.query['month'].int()
+	} else {
+		time.now().month
+	}
+	year := if ctx.query['year'].len > 0 {
+		ctx.query['year'].int()
+	} else {
+		time.now().year
+	}
+	payslips := app.repo.get_payslips_by_period(month, year)
+	return ctx.json(payslips)
+}
+
+// GET /employees/:id/payslips - Historique des bulletins d'un employé
+@['/employees/:id/payslips']
+pub fn (app &App) get_employee_payslips(mut ctx Context, id int) veb.Result {
+	dto.validate_id(id, 'employee_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.employee_svc.get_by_id(id) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Employé non trouvé'))
+	}
+	payslips := app.repo.get_payslips_by_employee(id)
+	return ctx.json(payslips)
+}
+
 // GET /payslips/:id/pdf - Téléchargement du bulletin de paie au format PDF
 @['/payslips/:id/pdf']
 pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
@@ -127,7 +159,13 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 	}
 	cnps_rules := app.repo.get_tax_rules('CI')
 	adjustments := app.repo.get_adjustments_for_period(emp.id, payslip.period_start.month, payslip.period_start.year)
-	calc_res := core.calculate_pay_full_ci(contract, cnps_rules, adjustments, emp.tax_parts)
+
+	// Fix 3 : affichage basé sur les montants FIGÉS du bulletin (gross_amount, total_taxes, net_amount)
+	// et non sur un recalcul complet. On ne recalcule que le détail des lignes de cotisations
+	// (salariales + patronales) à partir des règles CNPS appliquées au brut figé.
+	frozen_gross := payslip.gross_amount
+	tax_details := core.calculate_pay_full_ci(contract, cnps_rules, adjustments, emp.tax_parts).tax_details
+	employer_details, employer_total := core.calculate_employer_contributions_ci(cnps_rules, frozen_gross)
 
 	object_name := 'bulletin_${id}.pdf'
 	mut pdf_bytes := []u8{}
@@ -135,7 +173,7 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 	// Tenter de récupérer depuis MinIO en priorité
 	pdf_bytes = app.storage_svc.download_file(object_name) or {
 		// Si absent de MinIO, générer le PDF et l'uploader vers MinIO
-		gen_path := services.generate_and_store_payslip_pdf_minio(payslip, emp, contract, calc_res.tax_details, &app.storage_svc) or {
+		gen_path := services.generate_and_store_payslip_pdf_minio(payslip, emp, contract, tax_details, employer_details, employer_total, &app.storage_svc) or {
 			services.log_error('Erreur génération PDF bulletin ${id}: ${err}')
 			ctx.res.set_status(.internal_server_error)
 			return ctx.json(dto.error_response('Erreur lors de la génération du PDF'))
@@ -169,6 +207,10 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 // run_payroll POST /payroll/run - Génère et sauvegarde la paie mensuelle de tous les employés
 @['/payroll/run'; post]
 pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	body := ctx.req.data
 	req := json2.decode[dto.PayrollRunRequest](body) or {
 		ctx.res.set_status(.bad_request)
@@ -182,6 +224,10 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 
 	mut payroll_service := services.new_payroll_service(mut app.repo)
 	payslips := payroll_service.run_and_save_monthly_payroll(req.month, req.year) or {
+		if err.msg().contains('déjà été générée') {
+			ctx.res.set_status(.conflict)
+			return ctx.json(dto.error_response(err.msg()))
+		}
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
@@ -219,4 +265,45 @@ pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
 	xml_content := services.generate_sepa_xml(transfers)
 	ctx.res.header.set(.content_type, 'application/xml; charset=utf-8')
 	return ctx.text(xml_content)
+}
+
+// GET /payroll/book - Livre de Paie mensuel au format JSON
+@['/payroll/book']
+pub fn (app &App) get_payroll_book_json(mut ctx Context) veb.Result {
+	month := ctx.query['month'] or { '9' }.int()
+	year := ctx.query['year'] or { '2026' }.int()
+
+	book := app.payroll_svc.get_payroll_book(month, year)
+	return ctx.json(book)
+}
+
+// GET /payroll/book/csv - Livre de Paie mensuel au format CSV
+@['/payroll/book/csv']
+pub fn (app &App) get_payroll_book_csv(mut ctx Context) veb.Result {
+	month := ctx.query['month'] or { '9' }.int()
+	year := ctx.query['year'] or { '2026' }.int()
+
+	book := app.payroll_svc.get_payroll_book(month, year)
+	csv_content := services.generate_payroll_book_csv(book)
+
+	ctx.res.header.set(.content_type, 'text/csv; charset=utf-8')
+	ctx.res.header.set_custom('Content-Disposition', 'attachment; filename="livre_de_paie_${month}_${year}.csv"') or {}
+	return ctx.text(csv_content)
+}
+
+// GET /payroll/book/pdf - Livre de Paie mensuel au format PDF récapitulatif
+@['/payroll/book/pdf']
+pub fn (app &App) get_payroll_book_pdf(mut ctx Context) veb.Result {
+	month := ctx.query['month'] or { '9' }.int()
+	year := ctx.query['year'] or { '2026' }.int()
+
+	book := app.payroll_svc.get_payroll_book(month, year)
+	pdf_bytes := services.generate_payroll_book_pdf(book) or {
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response('Erreur lors de la génération du PDF du Livre de Paie'))
+	}
+
+	ctx.res.header.set(.content_type, 'application/pdf')
+	ctx.res.header.set_custom('Content-Disposition', 'inline; filename="livre_de_paie_${month}_${year}.pdf"') or {}
+	return ctx.send_response_to_client('application/pdf', pdf_bytes.bytestr())
 }

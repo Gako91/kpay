@@ -3,6 +3,7 @@ module services
 import core
 import models
 import repository
+import dto
 import time
 
 pub struct PayrollService {
@@ -60,7 +61,7 @@ pub fn (mut s PayrollService) run_monthly_payroll(month int, year int) ![]models
 		}
 
 		generated_payslips << new_payslip
-		log_info('Paie calculée pour ${emp.first_name} ${emp.last_name}: Net ${result.net_pay / 100} FCFA')
+		log_info('Paie calculée pour ${emp.first_name} ${emp.last_name}: Net ${result.net_pay} FCFA')
 	}
 
 	return generated_payslips
@@ -69,7 +70,13 @@ pub fn (mut s PayrollService) run_monthly_payroll(month int, year int) ![]models
 // run_and_save_monthly_payroll Génère puis sauvegarde les bulletins de paie du mois.
 // Toutes les insertions sont enveloppées dans une transaction : en cas d'erreur partielle,
 // aucun bulletin n'est persisté (pas de paie incomplète en base).
+// Une exécution déjà effectuée pour la même période est refusée (idempotence).
 pub fn (mut s PayrollService) run_and_save_monthly_payroll(month int, year int) ![]models.Payslip {
+	// Idempotence : refuser si la paie de cette période a déjà été générée
+	if s.repo.exists_payslip_for_period(month, year) {
+		return error('La paie de ${month}/${year} a déjà été générée. Utilisez la correction de bulletin si nécessaire.')
+	}
+
 	payslips := s.run_monthly_payroll(month, year)!
 
 	// Ouvrir la transaction avant toute insertion
@@ -115,4 +122,44 @@ pub fn (mut s PayrollService) mark_paid(payslip_id int) ! {
 	emp := s.repo.get_employee_by_id(payslip.employee_id) or { return }
 	mut queue := new_notification_queue()
 	queue.push(notify_payment_processed(emp.email, payslip.id, payslip.net_amount))
+}
+
+// get_payroll_book calcule et consolide le Livre de Paie pour un mois donné
+pub fn (s &PayrollService) get_payroll_book(month int, year int) dto.PayrollBookResponse {
+	// Filtrage en base pour éviter de charger toute la table en mémoire
+	all_payslips := s.repo.get_payslips_by_period(month, year)
+	mut items := []dto.PayrollBookItem{}
+	mut total_gross := i64(0)
+	mut total_taxes := i64(0)
+	mut total_net := i64(0)
+
+	for p in all_payslips {
+		emp := s.repo.get_employee_by_id(p.employee_id) or { continue }
+
+		items << dto.PayrollBookItem{
+			payslip_id: p.id
+			employee_id: emp.id
+			matricule: 'EMP-${emp.id:04d}'
+			full_name: '${emp.first_name} ${emp.last_name}'
+			position: 'Salarie'
+			gross_amount: p.gross_amount
+			total_taxes: p.total_taxes
+			net_amount: p.net_amount
+			is_paid: p.is_paid
+		}
+
+		total_gross += p.gross_amount
+		total_taxes += p.total_taxes
+		total_net += p.net_amount
+	}
+
+	return dto.PayrollBookResponse{
+		month: month
+		year: year
+		total_employees: items.len
+		total_gross: total_gross
+		total_taxes: total_taxes
+		total_net: total_net
+		items: items
+	}
 }

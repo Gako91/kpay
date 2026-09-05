@@ -6,11 +6,28 @@ import veb
 import dto
 import time
 
-// GET /employees
+// GET /employees?page=1&limit=50 - Liste paginée des employés
 @['/employees']
 pub fn (app &App) get_employees(mut ctx Context) veb.Result {
-	employees := app.employee_svc.get_all()
-	return ctx.json(employees)
+	page := if ctx.query['page'].len > 0 { ctx.query['page'].int() } else { 1 }
+	if page < 1 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response("Le paramètre 'page' doit être >= 1"))
+	}
+	page_size := if ctx.query['limit'].len > 0 { ctx.query['limit'].int() } else { 50 }
+	if page_size < 1 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response("Le paramètre 'limit' doit être >= 1"))
+	}
+	employees, total := app.repo.get_employees_paginated(page, page_size)
+	items := dto.PageResponse[models.Employee]{
+		data: employees
+		page: page
+		page_size: page_size
+		total: total
+		total_pages: if page_size > 0 { (total + page_size - 1) / page_size } else { 0 }
+	}
+	return ctx.json(items)
 }
 
 // GET /employees/:id
@@ -30,6 +47,10 @@ pub fn (app &App) get_employee(mut ctx Context, id int) veb.Result {
 // POST /employees
 @['/employees'; post]
 pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	body := ctx.req.data
 	emp := json2.decode[models.Employee](body) or {
 		ctx.res.set_status(.bad_request)
@@ -67,6 +88,87 @@ pub fn (app &App) get_contract(mut ctx Context, employee_id int) veb.Result {
 		return ctx.json(dto.error_response('Aucun contrat actif'))
 	}
 	return ctx.json(contract)
+}
+
+// GET /employees/:id/contracts - Historique des contrats d'un employé
+@['/employees/:id/contracts']
+pub fn (app &App) get_employee_contracts(mut ctx Context, id int) veb.Result {
+	dto.validate_id(id, 'employee_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.employee_svc.get_by_id(id) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Employé non trouvé'))
+	}
+	contracts := app.contract_svc.get_by_employee(id)
+	return ctx.json(contracts)
+}
+
+// PUT /employees/:id - Mettre à jour un employé
+@['/employees/:id'; put]
+pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	dto.validate_id(id, 'employee_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+
+	body := ctx.req.data
+	decoded := json2.decode[models.Employee](body) or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('JSON invalide'))
+	}
+	emp := models.Employee{
+		...decoded
+		id: id // Forcer l'ID depuis l'URL
+	}
+
+	dto.validate_employee(emp) or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+
+	// Vérifier que l'employé existe
+	app.employee_svc.get_by_id(id) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Employé non trouvé'))
+	}
+
+	app.employee_svc.update(emp) or {
+		if err.msg().contains('existe déjà') {
+			ctx.res.set_status(.conflict)
+			return ctx.json(dto.ApiResponse{ success: false, data: '', message: err.msg() })
+		}
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé mis à jour' })
+}
+
+// DELETE /employees/:id - Désactiver un employé (soft delete)
+@['/employees/:id'; delete]
+pub fn (mut app App) delete_employee(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	dto.validate_id(id, 'employee_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.employee_svc.get_by_id(id) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Employé non trouvé'))
+	}
+	app.employee_svc.deactivate(id) or {
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response('Erreur lors de la désactivation'))
+	}
+	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé désactivé' })
 }
 
 // POST /contracts - Créer un contrat pour un employé

@@ -18,6 +18,7 @@
 - **Export de données** :
   - Export CSV des employés et bulletins
   - Export XML SEPA pour les virements bancaires
+- **Documentation OpenAPI / Swagger UI** : Spécification complète et interface interactive sur `/docs`
 - **Authentification API** : Sécurisation par clé API (header `X-Api-Key`)
 - **Notifications** : Système de notification pour les événements (bulletin généré, paiement effectué)
 - **Base de données PostgreSQL** : Persistance des données avec transactions ACID
@@ -101,17 +102,20 @@ KPAY_API_KEY=votre_cle_api_secrete
 ## 🛠️ Installation
 
 1. **Cloner le dépôt**
+
    ```bash
    git clone https://github.com/your-org/kpay.git
    cd kpay
    ```
 
 2. **Installer les dépendances**
+
    ```bash
    v install
    ```
 
 3. **Configurer la base de données**
+
    ```sql
    CREATE DATABASE kpay_db;
    CREATE USER kpay WITH PASSWORD 'votre_mot_de_passe';
@@ -119,6 +123,7 @@ KPAY_API_KEY=votre_cle_api_secrete
    ```
 
 4. **Définir la clé API**
+
    ```bash
    export KPAY_API_KEY=$(openssl rand -hex 32)
    ```
@@ -133,6 +138,7 @@ KPAY_API_KEY=votre_cle_api_secrete
 ### Authentification
 
 Toutes les routes (sauf `/` et `/health`) nécessitent le header :
+
 ```
 X-Api-Key: votre_cle_api
 ```
@@ -140,36 +146,41 @@ X-Api-Key: votre_cle_api
 ### Endpoints
 
 #### Info & Health
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/` | Informations de l'API |
-| `GET` | `/health` | Health check |
+
+| Méthode | Endpoint  | Description           |
+| ------- | --------- | --------------------- |
+| `GET`   | `/`       | Informations de l'API |
+| `GET`   | `/health` | Health check          |
 
 #### Employés
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/employees` | Liste tous les employés actifs |
-| `GET` | `/employees/:id` | Récupère un employé par ID |
-| `POST` | `/employees` | Crée un nouvel employé |
-| `GET` | `/contracts/:employee_id` | Récupère le contrat actif d'un employé |
+
+| Méthode | Endpoint                  | Description                            |
+| ------- | ------------------------- | -------------------------------------- |
+| `GET`   | `/employees`              | Liste tous les employés actifs         |
+| `GET`   | `/employees/:id`          | Récupère un employé par ID             |
+| `POST`  | `/employees`              | Crée un nouvel employé                 |
+| `GET`   | `/contracts/:employee_id` | Récupère le contrat actif d'un employé |
 
 #### Paie
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `POST` | `/payroll/calculate` | Calcule la paie pour un employé (sans sauvegarder) |
-| `POST` | `/payroll/run` | Génère et sauvegarde la paie mensuelle pour tous les employés |
-| `GET` | `/payslips/:id` | Consulte un bulletin de paie |
-| `POST` | `/payslips/:id/pay` | Marque un bulletin comme payé |
+
+| Méthode | Endpoint             | Description                                                   |
+| ------- | -------------------- | ------------------------------------------------------------- |
+| `POST`  | `/payroll/calculate` | Calcule la paie pour un employé (sans sauvegarder)            |
+| `POST`  | `/payroll/run`       | Génère et sauvegarde la paie mensuelle pour tous les employés |
+| `GET`   | `/payslips/:id`      | Consulte un bulletin de paie                                  |
+| `POST`  | `/payslips/:id/pay`  | Marque un bulletin comme payé                                 |
 
 #### Exports
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/exports/employees/csv` | Exporte les employés en CSV |
-| `GET` | `/exports/sepa` | Génère un fichier XML SEPA pour les virements |
+
+| Méthode | Endpoint                 | Description                                   |
+| ------- | ------------------------ | --------------------------------------------- |
+| `GET`   | `/exports/employees/csv` | Exporte les employés en CSV                   |
+| `GET`   | `/exports/sepa`          | Génère un fichier XML SEPA pour les virements |
 
 ### Exemples de Requêtes
 
 #### Créer un employé
+
 ```bash
 curl -X POST http://localhost:8080/employees \
   -H "X-Api-Key: votre_cle_api" \
@@ -182,6 +193,7 @@ curl -X POST http://localhost:8080/employees \
 ```
 
 #### Calculer la paie
+
 ```bash
 curl -X POST http://localhost:8080/payroll/calculate \
   -H "X-Api-Key: votre_cle_api" \
@@ -194,6 +206,7 @@ curl -X POST http://localhost:8080/payroll/calculate \
 ```
 
 #### Lancer la paie mensuelle
+
 ```bash
 curl -X POST http://localhost:8080/payroll/run \
   -H "X-Api-Key: votre_cle_api" \
@@ -207,6 +220,7 @@ curl -X POST http://localhost:8080/payroll/run \
 ## 🧪 Tests
 
 Exécuter les tests unitaires :
+
 ```bash
 v test ./core/
 ```
@@ -222,10 +236,12 @@ v test ./core/
 Le système inclut par défaut les cotisations CNPS ivoiriennes :
 
 ### Part Salariale
+
 - **Retraite** : 4.12%
 - **Maladie-Maternité** : 0.75%
 
 ### Part Patronale
+
 - **Retraite** : 5.86%
 - **Prestations Familiales** : 7.00%
 - **AMV** : 2.60%

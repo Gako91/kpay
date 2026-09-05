@@ -2,10 +2,37 @@ module data
 
 import models
 import repository
+import common
+import services
+import os
 import time
 
 // Seed des données initiales via le Repository
 pub fn seed_data(mut repo repository.Repository) ! {
+	seed_admin_user(mut repo)!
+	seed_cnps_rules(mut repo)!
+}
+
+// seed_admin_user crée un compte administrateur par défaut si aucun utilisateur n'existe.
+fn seed_admin_user(mut repo repository.Repository) ! {
+	if repo.get_all_users().len > 0 {
+		return
+	}
+	username := os.getenv_opt('KPAY_ADMIN_USERNAME') or { 'admin' }
+	password := os.getenv_opt('KPAY_ADMIN_PASSWORD') or { 'admin123' }
+	repo.create_user(models.User{
+		username: username
+		password_hash: common.hash_password(password)
+		role: 'admin'
+		email: 'admin@kpay.local'
+		is_active: true
+		created_at: time.now()
+	})!
+	services.log_info('Compte administrateur par défaut créé: ${username}')
+}
+
+// seed_cnps_rules initialise les règles CNPS et un exemple s'il n'existe pas déjà.
+fn seed_cnps_rules(mut repo repository.Repository) ! {
 	// Vérifier si les règles CNPS pour la Côte d'Ivoire existent déjà
 	// (on vérifie par pays pour ne pas bloquer si des règles d'autres pays sont présentes)
 	existing_ci_rules := repo.get_tax_rules('CI')

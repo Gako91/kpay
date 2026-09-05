@@ -10,8 +10,27 @@ pub enum LogLevel {
 	error_
 }
 
+// current_log_rank est le rang du niveau de log actif (0=debug,1=info,2=warn,3=error).
+// Valeur par défaut : info (1). Initialisé par init_log_level(config.log_level).
+// Nécessite la compilation avec `-enable-globals`.
+__global current_log_rank = 1
+
+// init_log_level configure le niveau de log minimum à partir d'une chaîne config.
+pub fn init_log_level(level string) {
+	current_log_rank = match level.to_lower() {
+		'debug' { 0 }
+		'warn' { 2 }
+		'error' { 3 }
+		else { 1 }
+	}
+}
+
 // Log sur la console
 pub fn log(level LogLevel, message string) {
+	// Filtrage par niveau : on n'émet que les messages >= niveau configuré
+	if rank(level) < current_log_rank {
+		return
+	}
 	timestamp := time.now().format_ss()
 	level_str := match level {
 		.debug { '[DEBUG]' }
@@ -20,6 +39,15 @@ pub fn log(level LogLevel, message string) {
 		.error_ { '[ERROR]' }
 	}
 	println('${timestamp} ${level_str} ${message}')
+}
+
+fn rank(level LogLevel) int {
+	return match level {
+		.debug { 0 }
+		.info { 1 }
+		.warn { 2 }
+		.error_ { 3 }
+	}
 }
 
 pub fn log_debug(message string) {

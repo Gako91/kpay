@@ -10,6 +10,19 @@ pub fn (r &Repository) get_all_employees() []models.Employee {
 	} or { [] }
 }
 
+// get_employees_paginated retourne une page d'employés actifs (offset/limit) avec le total.
+// page et limit sont 1-indexés ; limit est borné à 100.
+pub fn (r &Repository) get_employees_paginated(page int, page_size int) ([]models.Employee, int) {
+	offset := (page - 1) * page_size
+	employees := sql r.db {
+		select from models.Employee where is_active == true order by id asc limit page_size offset offset
+	} or { [] }
+	total := sql r.db {
+		select count from models.Employee where is_active == true
+	} or { 0 }
+	return employees, total
+}
+
 pub fn (r &Repository) get_employee_by_id(emp_id int) ?models.Employee {
 	result := sql r.db {
 		select from models.Employee where id == emp_id limit 1
