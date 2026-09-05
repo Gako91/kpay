@@ -8,6 +8,7 @@ import common
 import models
 import json2
 import time
+
 // import os
 
 // Application principale
@@ -25,6 +26,8 @@ pub mut:
 	payroll_svc  services.PayrollService // Service paie
 	storage_svc  services.StorageService // Service stockage MinIO / S3
 	auth_svc     services.AuthService // Service authentification
+	audit_svc    services.AuditService // Service journal d'audit
+	mailer_svc   services.MailerService // Service d'envoi d'emails (SMTP)
 }
 
 // Contexte par requête
@@ -145,6 +148,14 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 // OPENAPI_YAML_SPEC embarqué dans le binaire pour éviter les problèmes de chemin/conteneur
 const openapi_yaml_spec = $embed_file('../openapi.yaml').to_string()
 
+// audit_action enregistre une action dans le journal d'audit (best effort).
+// L'acteur est l'utilisateur authentifié courant ('anonyme' pour les routes publiques).
+pub fn (app &App) audit_action(mut ctx Context, action string, resource string, resource_id int, detail string) {
+	actor := if ctx.user_sub.len > 0 { ctx.user_sub } else { 'anonyme' }
+	ip := ctx.req.header.get_custom('X-Forwarded-For') or { '' }
+	app.audit_svc.record(actor, action, resource, resource_id, detail, ip)
+}
+
 // ==================== ENDPOINTS ====================
 
 // GET / - Info API
@@ -162,11 +173,62 @@ pub fn (app &App) health(mut ctx Context) veb.Result {
 	return ctx.text('OK')
 }
 
+// GET /health/db - État du pool de connexions PostgreSQL (réservé admin)
+@['/health/db']
+pub fn (mut app App) health_db(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	mut repo := app.repo
+	stats := repo.pool_stats()
+	payload := {
+		'max_open_connections': int(stats.max_open_connections)
+		'open_connections':     int(stats.open_connections)
+		'in_use':               int(stats.in_use)
+		'idle':                 int(stats.idle)
+		'wait_count':           int(stats.wait_count)
+	}
+	return ctx.json(payload)
+}
+
+// GET /audit-logs - Journal d'audit paginé et filtrable (réservé admin)
+@['/audit-logs']
+pub fn (app &App) get_audit_logs(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	page := if ctx.query['page'].len > 0 { ctx.query['page'].int() } else { 1 }
+	if page < 1 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response("Le paramètre 'page' doit être >= 1"))
+	}
+	page_size := if ctx.query['limit'].len > 0 { ctx.query['limit'].int() } else { 50 }
+	if page_size < 1 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response("Le paramètre 'limit' doit être >= 1"))
+	}
+	actor := if ctx.query['actor'].len > 0 { ctx.query['actor'] } else { '' }
+	action := if ctx.query['action'].len > 0 { ctx.query['action'] } else { '' }
+	resource := if ctx.query['resource'].len > 0 { ctx.query['resource'] } else { '' }
+
+	logs, total := app.audit_svc.list(actor, action, resource, page, page_size)
+	items := dto.PageResponse[models.AuditLog]{
+		data: logs
+		page: page
+		page_size: page_size
+		total: total
+		total_pages: if page_size > 0 { (total + page_size - 1) / page_size } else { 0 }
+	}
+	return ctx.json(items)
+}
+
 // ==================== AUTH ====================
 
 // POST /auth/login - Connexion et génération d'un token JWT
 @['/auth/login'; post]
-pub fn (app &App) auth_login(mut ctx Context) veb.Result {
+pub fn (mut app App) auth_login(mut ctx Context) veb.Result {
 	body := ctx.req.data
 	req := json2.decode[dto.LoginRequest](body) or {
 		ctx.res.set_status(.bad_request)
@@ -178,15 +240,17 @@ pub fn (app &App) auth_login(mut ctx Context) veb.Result {
 	}
 
 	res := app.auth_svc.login(req.username, req.password) or {
+		app.audit_action(mut ctx, 'auth.login', 'user', 0, 'Échec de connexion pour ${req.username}: ${err}')
 		ctx.res.set_status(.unauthorized)
 		return ctx.json(dto.error_response(err.msg()))
 	}
+	app.audit_action(mut ctx, 'auth.login', 'user', 0, 'Connexion réussie pour ${req.username}')
 	return ctx.json(res)
 }
 
 // POST /auth/register - Création d'un compte utilisateur
 @['/auth/register'; post]
-pub fn (app &App) auth_register(mut ctx Context) veb.Result {
+pub fn (mut app App) auth_register(mut ctx Context) veb.Result {
 	body := ctx.req.data
 	req := json2.decode[dto.RegisterRequest](body) or {
 		ctx.res.set_status(.bad_request)
@@ -206,12 +270,14 @@ pub fn (app &App) auth_register(mut ctx Context) veb.Result {
 		created_at: time.now()
 	}) or {
 		if err.msg().contains('existe déjà') {
+			app.audit_action(mut ctx, 'auth.register', 'user', 0, "Échec — nom '${req.username}' déjà pris")
 			ctx.res.set_status(.conflict)
 			return ctx.json(dto.ApiResponse{ success: false, data: '', message: err.msg() })
 		}
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
+	app.audit_action(mut ctx, 'auth.register', 'user', int(id), "Utilisateur '${req.username}' créé (${req.role})")
 	ctx.res.set_status(.created)
 	// services.log_info('Utilisateur ctx.re.data${ctx.req.data} ajouté')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Utilisateur créé' })

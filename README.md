@@ -18,9 +18,13 @@
 - **Export de données** :
   - Export CSV des employés et bulletins
   - Export XML SEPA pour les virements bancaires
-- **Documentation OpenAPI / Swagger UI** : Spécification complète et interface interactive sur `/docs`
+- **Documents OpenAPI / Swagger UI** : Spécification complète et interface interactive sur `/docs`
 - **Authentification API** : Sécurisation par clé API (header `X-Api-Key`)
-- **Notifications** : Système de notification pour les événements (bulletin généré, paiement effectué)
+- **Workflow d'approbation** : Bulletins brouillon → soumis → approuvé → payé
+- **Journal d'audit** : Traçabilité des actions sensibles (login, paie, approbations...)
+- **Notifications** : Système de notification pour les événements (bulletin généré, paiement effectué), envoi réel par SMTP
+- **Pool de connexions** : PostgreSQL avec pool paramétrable (stats exposées via `/health/db`)
+- **CI/CD** : Pipeline GitHub Actions (compilation, tests, build production)
 - **Base de données PostgreSQL** : Persistance des données avec transactions ACID
 
 ## 📁 Architecture du Projet
@@ -91,6 +95,21 @@ KPAY_LOG_LEVEL=info
 
 # Clé API pour l'authentification (OBLIGATOIRE)
 KPAY_API_KEY=votre_cle_api_secrete
+
+# Pool de connexions PostgreSQL (optionnel)
+KPAY_DB_POOL_MAX_OPEN=10
+KPAY_DB_POOL_MAX_IDLE=2
+KPAY_DB_POOL_CONN_MAX_LIFETIME=0   # secondes (0 = illimité)
+
+# SMTP - notifications email (optionnel, false = logs console)
+KPAY_SMTP_ENABLED=false
+KPAY_SMTP_HOST=smtp.gmail.com
+KPAY_SMTP_PORT=587
+KPAY_SMTP_USERNAME=
+KPAY_SMTP_PASSWORD=
+KPAY_SMTP_FROM=kpay@localhost
+KPAY_SMTP_SSL=false
+KPAY_SMTP_STARTTLS=true
 ```
 
 ### Prérequis
@@ -163,12 +182,23 @@ X-Api-Key: votre_cle_api
 
 #### Paie
 
-| Méthode | Endpoint             | Description                                                   |
-| ------- | -------------------- | ------------------------------------------------------------- |
-| `POST`  | `/payroll/calculate` | Calcule la paie pour un employé (sans sauvegarder)            |
-| `POST`  | `/payroll/run`       | Génère et sauvegarde la paie mensuelle pour tous les employés |
-| `GET`   | `/payslips/:id`      | Consulte un bulletin de paie                                  |
-| `POST`  | `/payslips/:id/pay`  | Marque un bulletin comme payé                                 |
+| Méthode | Endpoint                     | Description                                                   |
+| ------- | ---------------------------- | ------------------------------------------------------------- |
+| `POST`  | `/payroll/calculate`         | Calcule la paie pour un employé (sans sauvegarder)            |
+| `POST`  | `/payroll/run`               | Génère et sauvegarde la paie mensuelle pour tous les employés |
+| `GET`   | `/payslips/:id`              | Consulte un bulletin de paie                                  |
+| `GET`   | `/payslips/:id/pdf`          | Télécharge le bulletin au format PDF                          |
+| `POST`  | `/payslips/:id/submit`       | Soumet un bulletin pour approbation                           |
+| `POST`  | `/payslips/:id/approve`      | Approuve un bulletin soumis                                   |
+| `POST`  | `/payslips/:id/reject`       | Refuse un bulletin (retour en brouillon)                      |
+| `POST`  | `/payslips/:id/pay`          | Marque un bulletin comme payé (doit être approuvé)            |
+
+#### Audit & Supervision
+
+| Méthode | Endpoint      | Description                              |
+| ------- | ------------- | ---------------------------------------- |
+| `GET`   | `/health/db`  | Statistiques du pool PostgreSQL (admin)  |
+| `GET`   | `/audit-logs` | Journal d'audit paginé/filtré (admin)    |
 
 #### Exports
 

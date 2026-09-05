@@ -24,6 +24,19 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_BUCKET=payslips
+      # Pool de connexions DB
+      - KPAY_DB_POOL_MAX_OPEN=10
+      - KPAY_DB_POOL_MAX_IDLE=2
+      - KPAY_DB_POOL_CONN_MAX_LIFETIME=0
+      # SMTP (mails réels si KPAY_SMTP_ENABLED=true)
+      - KPAY_SMTP_ENABLED=false
+      - KPAY_SMTP_HOST=smtp.gmail.com
+      - KPAY_SMTP_PORT=587
+      - KPAY_SMTP_USERNAME=
+      - KPAY_SMTP_PASSWORD=
+      - KPAY_SMTP_FROM=kpay@localhost
+      - KPAY_SMTP_SSL=false
+      - KPAY_SMTP_STARTTLS=true
     volumes:
       - kpay_storage:/app/storage/payslips
     depends_on:

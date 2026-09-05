@@ -8,13 +8,20 @@ import time
 
 pub struct PayrollService {
 mut:
-	repo repository.Repository
+	repo   repository.Repository
+	mailer MailerService
 }
 
 pub fn new_payroll_service(mut repo repository.Repository) PayrollService {
 	return PayrollService{
 		repo: repo
+		mailer: MailerService{}
 	}
+}
+
+// set_mailer attache le service d'envoi d'emails aux notifications.
+pub fn (mut s PayrollService) set_mailer(m MailerService) {
+	s.mailer = m
 }
 
 pub fn (mut s PayrollService) run_monthly_payroll(month int, year int) ![]models.Payslip {
@@ -58,6 +65,7 @@ pub fn (mut s PayrollService) run_monthly_payroll(month int, year int) ![]models
 			gross_amount: result.gross_pay
 			total_taxes: result.total_taxes
 			net_amount: result.net_pay
+			status: models.status_brouillon
 		}
 
 		generated_payslips << new_payslip
@@ -109,19 +117,69 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(month int, year int) 
 		emp := s.repo.get_employee_by_id(p.employee_id) or { continue }
 		queue.push(notify_payslip_generated(emp.email, '${month}/${year}'))
 	}
+	mut dispatcher := new_notification_dispatcher()
+	dispatcher.mailer = s.mailer
+	dispatcher.queue = queue
+	dispatcher.dispatch_all()
 
 	return saved
 }
 
-// mark_paid marque un bulletin de paie comme payé
+// mark_paid marque un bulletin de paie comme payé.
+// Le bulletin doit être approuvé (workflow) avant le paiement.
 pub fn (mut s PayrollService) mark_paid(payslip_id int) ! {
+	payslip := s.repo.get_payslip_by_id(payslip_id) or {
+		return error('Bulletin ${payslip_id} introuvable')
+	}
+	if payslip.status != models.status_approuve {
+		return error("Bulletin ${payslip_id} non approuvé — statut '${payslip.status}', approuvez-le d'abord")
+	}
 	s.repo.mark_payslip_paid(payslip_id)!
 	log_info('Bulletin ${payslip_id} marqué comme payé')
 
-	payslip := s.repo.get_payslip_by_id(payslip_id) or { return }
 	emp := s.repo.get_employee_by_id(payslip.employee_id) or { return }
 	mut queue := new_notification_queue()
 	queue.push(notify_payment_processed(emp.email, payslip.id, payslip.net_amount))
+	mut dispatcher := new_notification_dispatcher()
+	dispatcher.mailer = s.mailer
+	dispatcher.queue = queue
+	dispatcher.dispatch_all()
+}
+
+// submit_payslip transmet un bulletin pour approbation (brouillon/rejeté → soumis).
+pub fn (mut s PayrollService) submit_payslip(payslip_id int) ! {
+	payslip := s.repo.get_payslip_by_id(payslip_id) or {
+		return error('Bulletin ${payslip_id} introuvable')
+	}
+	if payslip.status != models.status_brouillon && payslip.status != models.status_rejete {
+		return error("Seul un bulletin 'brouillon' ou rejeté peut être soumis (statut actuel: '${payslip.status}')")
+	}
+	s.repo.update_payslip_status(payslip_id, models.status_soumis)!
+	log_info('Bulletin ${payslip_id} soumis pour approbation')
+}
+
+// approve_payslip approuve un bulletin soumis.
+pub fn (mut s PayrollService) approve_payslip(payslip_id int, approver string) ! {
+	payslip := s.repo.get_payslip_by_id(payslip_id) or {
+		return error('Bulletin ${payslip_id} introuvable')
+	}
+	if payslip.status != models.status_soumis {
+		return error("Seul un bulletin 'soumis' peut être approuvé (statut actuel: '${payslip.status}')")
+	}
+	s.repo.approve_payslip(payslip_id, approver)!
+	log_info('Bulletin ${payslip_id} approuvé par ${approver}')
+}
+
+// reject_payslip refuse un bulletin soumis et le renvoie en brouillon.
+pub fn (mut s PayrollService) reject_payslip(payslip_id int) ! {
+	payslip := s.repo.get_payslip_by_id(payslip_id) or {
+		return error('Bulletin ${payslip_id} introuvable')
+	}
+	if payslip.status != models.status_soumis {
+		return error("Seul un bulletin 'soumis' peut être rejeté (statut actuel: '${payslip.status}')")
+	}
+	s.repo.update_payslip_status(payslip_id, models.status_brouillon)!
+	log_info('Bulletin ${payslip_id} rejeté — retour en brouillon')
 }
 
 // get_payroll_book calcule et consolide le Livre de Paie pour un mois donné

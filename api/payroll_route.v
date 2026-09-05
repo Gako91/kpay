@@ -73,21 +73,103 @@ pub fn (app &App) calculate_payroll(mut ctx Context) veb.Result {
 }
 
 // mark_payslip_paid POST /payslips/:id/pay - Marquage d'un bulletin payé
+// Le bulletin doit être approuvé (workflow) avant paiement.
 @['/payslips/:id/pay'; post]
 pub fn (mut app App) mark_payslip_paid(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'payslip_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
 	mut payroll_service := services.new_payroll_service(mut app.repo)
+	payroll_service.set_mailer(app.mailer_svc)
 
 	payroll_service.mark_paid(id) or {
+		if err.msg().contains('non approuvé') || err.msg().contains('introuvable') {
+			ctx.res.set_status(.conflict)
+			return ctx.json(dto.error_response(err.msg()))
+		}
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response('Erreur lors du marquage du bulletin'))
 	}
-
+	app.audit_action(mut ctx, 'payslip.pay', 'payslip', id, 'Bulletin payé')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Bulletin marqué comme payé' })
+}
+
+// submit_payslip POST /payslips/:id/submit - Transmet un bulletin pour approbation
+@['/payslips/:id/submit'; post]
+pub fn (mut app App) submit_payslip(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	dto.validate_id(id, 'payslip_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	mut payroll_service := services.new_payroll_service(mut app.repo)
+	payroll_service.submit_payslip(id) or {
+		if err.msg().contains('introuvable') {
+			ctx.res.set_status(.not_found)
+			return ctx.json(dto.error_response(err.msg()))
+		}
+		ctx.res.set_status(.conflict)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.audit_action(mut ctx, 'payslip.submit', 'payslip', id, 'Bulletin soumis pour approbation')
+	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Bulletin soumis pour approbation' })
+}
+
+// approve_payslip POST /payslips/:id/approve - Approuve un bulletin soumis
+@['/payslips/:id/approve'; post]
+pub fn (mut app App) approve_payslip(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	dto.validate_id(id, 'payslip_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	mut payroll_service := services.new_payroll_service(mut app.repo)
+	payroll_service.approve_payslip(id, ctx.user_sub) or {
+		if err.msg().contains('introuvable') {
+			ctx.res.set_status(.not_found)
+			return ctx.json(dto.error_response(err.msg()))
+		}
+		ctx.res.set_status(.conflict)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.audit_action(mut ctx, 'payslip.approve', 'payslip', id, 'Bulletin approuvé')
+	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Bulletin approuvé' })
+}
+
+// reject_payslip POST /payslips/:id/reject - Refuse un bulletin soumis (retour brouillon)
+@['/payslips/:id/reject'; post]
+pub fn (mut app App) reject_payslip(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	dto.validate_id(id, 'payslip_id') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	mut payroll_service := services.new_payroll_service(mut app.repo)
+	payroll_service.reject_payslip(id) or {
+		if err.msg().contains('introuvable') {
+			ctx.res.set_status(.not_found)
+			return ctx.json(dto.error_response(err.msg()))
+		}
+		ctx.res.set_status(.conflict)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.audit_action(mut ctx, 'payslip.reject', 'payslip', id, 'Bulletin rejeté — retour en brouillon')
+	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Bulletin rejeté' })
 }
 
 // GET /payslips/:id - Consultation d'un bulletin de paie
@@ -223,6 +305,7 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 	}
 
 	mut payroll_service := services.new_payroll_service(mut app.repo)
+	payroll_service.set_mailer(app.mailer_svc)
 	payslips := payroll_service.run_and_save_monthly_payroll(req.month, req.year) or {
 		if err.msg().contains('déjà été générée') {
 			ctx.res.set_status(.conflict)
@@ -231,6 +314,7 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
+	app.audit_action(mut ctx, 'payroll.run', 'payroll', 0, 'Paie ${req.month}/${req.year} — ${payslips.len} bulletins générés')
 
 	ctx.res.set_status(.created)
 	return ctx.json(dto.RunResponse{ success: true, count: payslips.len, payslips: payslips })

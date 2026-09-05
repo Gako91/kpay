@@ -29,7 +29,21 @@ pub fn (mut r Repository) create_payslip(payslip models.Payslip) !int {
 
 pub fn (mut r Repository) mark_payslip_paid(payslip_id int) ! {
 	sql r.db {
-		update models.Payslip set is_paid = true, paid_at = time.now() where id == payslip_id
+		update models.Payslip set is_paid = true, paid_at = time.now(), status = 'paye' where id == payslip_id
+	}!
+}
+
+// update_payslip_status change le statut du workflow d'un bulletin.
+pub fn (mut r Repository) update_payslip_status(payslip_id int, new_status string) ! {
+	sql r.db {
+		update models.Payslip set status = new_status where id == payslip_id
+	}!
+}
+
+// approve_payslip approuve un bulletin (statut + approbateur + horodatage).
+pub fn (mut r Repository) approve_payslip(payslip_id int, approver string) ! {
+	sql r.db {
+		update models.Payslip set status = 'approuve', approved_by = approver, approved_at = time.now() where id == payslip_id
 	}!
 }
 
@@ -65,6 +79,7 @@ pub fn (r &Repository) get_payslips_by_period(month int, year int) []models.Pays
 		select from models.Payslip where period_start >= start_of_month(month, year) && period_start <= end_of_month(month, year) order by id asc
 	} or { [] }
 }
+
 fn start_of_month(month int, year int) time.Time {
 	return time.Time{ year: year, month: month, day: 1 }
 }

@@ -117,10 +117,10 @@ pub fn (q NotificationQueue) count() int {
 // Crée une notification pour fiche de paie générée
 pub fn notify_payslip_generated(employee_email string, period string) Notification {
 	return Notification{
-		type_:      .payslip_generated
-		recipient:  employee_email
-		subject:    'Votre bulletin de paie est disponible'
-		message:    'Votre bulletin de paie pour la période ${period} est maintenant disponible.'
+		type_: .payslip_generated
+		recipient: employee_email
+		subject: 'Votre bulletin de paie est disponible'
+		message: 'Votre bulletin de paie pour la période ${period} est maintenant disponible.'
 		created_at: time.now()
 	}
 }
@@ -129,10 +129,10 @@ pub fn notify_payslip_generated(employee_email string, period string) Notificati
 pub fn notify_payment_processed(employee_email string, payslip_id int, net_amount i64) Notification {
 	amount_fmt := format_cents(net_amount)
 	return Notification{
-		type_:      .payment_processed
-		recipient:  employee_email
-		subject:    'Virement de votre salaire effectué'
-		message:    'Le virement de votre bulletin #${payslip_id} d\'un montant de ${amount_fmt} a été traité.'
+		type_: .payment_processed
+		recipient: employee_email
+		subject: 'Virement de votre salaire effectué'
+		message: "Le virement de votre bulletin #${payslip_id} d'un montant de ${amount_fmt} a été traité."
 		created_at: time.now()
 	}
 }
@@ -140,13 +140,15 @@ pub fn notify_payment_processed(employee_email string, payslip_id int, net_amoun
 // Dispatcher pour envoyer les notifications dépilées
 pub struct NotificationDispatcher {
 pub mut:
-	queue NotificationQueue
+	queue      NotificationQueue
+	mailer     MailerService
 	sent_count int
 }
 
 pub fn new_notification_dispatcher() NotificationDispatcher {
 	return NotificationDispatcher{
 		queue: new_notification_queue()
+		mailer: MailerService{}
 		sent_count: 0
 	}
 }
@@ -156,9 +158,13 @@ pub fn (mut d NotificationDispatcher) dispatch_all() int {
 	for {
 		item := d.queue.pop() or { break }
 		log_info('DEPECHE NOTIFICATION [${item.type_}] -> ${item.recipient} : "${item.subject}"')
+		if d.mailer.enabled && item.recipient.len > 0 {
+			d.mailer.send(item.recipient, item.subject, item.message) or {
+				log_warn('Échec envoi email ${item.recipient}: ${err}')
+			}
+		}
 		dispatched++
 	}
 	d.sent_count += dispatched
 	return dispatched
 }
-

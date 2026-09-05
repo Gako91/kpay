@@ -73,6 +73,7 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 	}
 
 	ctx.res.set_status(.created)
+	app.audit_action(mut ctx, 'employee.create', 'employee', int(new_id), 'Création de ${emp.first_name} ${emp.last_name}')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${new_id}', message: 'Employé créé' })
 }
 
@@ -146,6 +147,7 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
+	app.audit_action(mut ctx, 'employee.update', 'employee', id, 'Mise à jour de ${emp.first_name} ${emp.last_name}')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé mis à jour' })
 }
 
@@ -168,6 +170,7 @@ pub fn (mut app App) delete_employee(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response('Erreur lors de la désactivation'))
 	}
+	app.audit_action(mut ctx, 'employee.delete', 'employee', id, 'Employé désactivé')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé désactivé' })
 }
 

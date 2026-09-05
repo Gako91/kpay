@@ -2,6 +2,7 @@ module repository
 
 import db.pg
 import os
+import time
 import common
 import models
 
@@ -20,7 +21,17 @@ pub fn new_repository(config common.Config) !Repository {
 		password: config.db_password
 		dbname: config.db_name
 	}
-	mut db := pg.connect(conf_db, pg.PoolConfig{})!
+	// Pool de connexions PostgreSQL — paramétrable via KPAY_DB_POOL_*
+	conn_max_lifetime := if config.db_pool_conn_max_lifetime > 0 {
+		time.second * config.db_pool_conn_max_lifetime
+	} else {
+		time.Duration(0)
+	}
+	mut db := pg.connect(conf_db, pg.PoolConfig{
+		max_open_conns: config.db_pool_max_open
+		max_idle_conns: config.db_pool_max_idle
+		conn_max_lifetime: conn_max_lifetime
+	})!
 
 	mut repo := Repository{
 		db: db
@@ -41,6 +52,7 @@ fn (mut r Repository) init_tables() ! {
 		create table models.Adjustment
 		create table models.Payslip
 		create table models.User
+		create table models.AuditLog
 	}!
 
 	// Auto-migrations pour faire évoluer le schéma PostgreSQL existant
@@ -49,6 +61,12 @@ fn (mut r Repository) init_tables() ! {
 	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS tax_parts REAL DEFAULT 1.0;') or {}
 	r.db.exec('ALTER TABLE taxrule ADD COLUMN IF NOT EXISTS ceiling BIGINT DEFAULT 0;') or {}
 	r.db.exec('ALTER TABLE taxrule ADD COLUMN IF NOT EXISTS fixed_amount BIGINT DEFAULT 0;') or {}
+	// Workflow d'approbation des bulletins
+	r.db.exec("ALTER TABLE payslip ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'brouillon';") or {}
+	r.db.exec("ALTER TABLE payslip ADD COLUMN IF NOT EXISTS approved_by TEXT DEFAULT '';") or {}
+	r.db.exec('ALTER TABLE payslip ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;') or {}
+	// Rétro-compatibilité : les bulletins déjà payés sont marqués 'paye'
+	r.db.exec("UPDATE payslip SET status = 'paye' WHERE is_paid = true AND status = 'brouillon';") or {}
 }
 
 // run_migrations applique les scripts SQL versionnés depuis le dossier spécifié.
@@ -123,6 +141,11 @@ pub fn (mut r Repository) rollback() {
 // ==================== UTILITIES ====================
 pub fn (r &Repository) get_db() pg.DB {
 	return r.db
+}
+
+// pool_stats expose l'état du pool de connexions PostgreSQL.
+pub fn (mut r Repository) pool_stats() pg.PoolStats {
+	return r.db.stats()
 }
 
 pub fn (mut r Repository) close() {

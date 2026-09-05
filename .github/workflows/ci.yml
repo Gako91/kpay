@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: gcc:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install V
+        run: |
+          apt-get update -y
+          apt-get install -y git make curl ca-certificates
+          git clone --depth 1 --branch 0.5.2 https://github.com/vlang/v /tmp/v
+          cd /tmp/v && make
+          ln -s /tmp/v/v /usr/local/bin/v
+
+      - name: Install pdf module
+        run: v install pdf
+
+      - name: Check compilation
+        run: v -enable-globals -check main.v
+
+      - name: Tests core
+        run: v -enable-globals -cc gcc test core/
+
+      - name: Tests common
+        run: v -enable-globals -cc gcc test common/
+
+      - name: Tests services
+        run: v -enable-globals -cc gcc test services/
+
+      - name: Build production
+        run: v -enable-globals -cc gcc -prod -o /tmp/kpay-prod main.v

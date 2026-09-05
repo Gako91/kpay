@@ -19,7 +19,7 @@ fn main() {
 
 	// Fail-fast : une méthode d'authentification est obligatoire
 	if config.api_key.len == 0 && config.jwt_secret.len == 0 {
-		services.log_error('Aucune méthode d\'auth configurée — définissez KPAY_API_KEY ou KPAY_JWT_SECRET dans .env')
+		services.log_error("Aucune méthode d'auth configurée — définissez KPAY_API_KEY ou KPAY_JWT_SECRET dans .env")
 		return
 	}
 	if config.jwt_secret.len > 0 {
@@ -45,6 +45,20 @@ fn main() {
 		services.log_info('Rate limiting: ${config.rate_limit_max} req / ${config.rate_limit_window}s par IP')
 	}
 
+	// Service d'envoi d'emails (SMTP)
+	mailer_svc := services.new_mailer_service(config)
+	if config.smtp_enabled {
+		services.log_info('SMTP activé (${config.smtp_host}:${config.smtp_port}, TLS: ${config.smtp_ssl || config.smtp_starttls})')
+	} else {
+		services.log_info('SMTP désactivé — notifications journalisées uniquement (KPAY_SMTP_ENABLED=true pour activer)')
+	}
+
+	// Journal d'audit
+	audit_svc := services.new_audit_service(mut repo)
+
+	// Pool de connexions PostgreSQL
+	services.log_info('Pool DB: max_open=${config.db_pool_max_open} max_idle=${config.db_pool_max_idle} lifetime=${config.db_pool_conn_max_lifetime}s (GET /health/db pour les stats)')
+
 	mut app := &api.App{
 		repo: repo
 		api_key: config.api_key
@@ -56,7 +70,10 @@ fn main() {
 		payroll_svc: services.new_payroll_service(mut repo)
 		storage_svc: storage_svc
 		auth_svc: services.new_auth_service(mut repo, config)
+		audit_svc: audit_svc
+		mailer_svc: mailer_svc
 	}
+	app.payroll_svc.set_mailer(mailer_svc)
 
 	// Enregistrement du middleware de logging de requêtes puis d'authentification
 	app.use(handler: app.request_logger)
@@ -73,6 +90,8 @@ fn main() {
 	services.log_info('  POST /auth/register - Création de compte')
 	services.log_info('  GET  /           - Info API')
 	services.log_info('  GET  /health     - Health check')
+	services.log_info('  GET  /health/db  - Statut du pool DB (admin)')
+	services.log_info("  GET  /audit-logs - Journal d'audit (admin, filtres: &actor=&action=&resource=)")
 	services.log_info('  GET  /docs       - Documentation Swagger UI')
 	services.log_info('  GET  /openapi.yaml - Spécification OpenAPI 3.0')
 	services.log_info('  GET  /employees  - Liste employés (paginé: ?page=&limit=)')
@@ -94,6 +113,9 @@ fn main() {
 	services.log_info('  GET  /payslips/:id      - Consulter un bulletin (JSON)')
 	services.log_info('  GET  /payslips/:id/pdf  - Télécharger un bulletin (PDF)')
 	services.log_info('  POST /payslips/:id/pay  - Marquer un bulletin payé')
+	services.log_info('  POST /payslips/:id/submit  - Soumettre un bulletin (workflow)')
+	services.log_info('  POST /payslips/:id/approve - Approuver un bulletin (workflow)')
+	services.log_info('  POST /payslips/:id/reject  - Rejeter un bulletin (workflow)')
 
 	veb.run[api.App, api.Context](mut app, config.port)
 }
