@@ -23,19 +23,46 @@ jobs:
           ln -s /tmp/v/v /usr/local/bin/v
 
       - name: Install pdf module
+        working-directory: backend
         run: v install pdf
 
       - name: Check compilation
+        working-directory: backend
         run: v -check main.v
 
       - name: Tests core
+        working-directory: backend
         run: v -cc gcc test core/
 
       - name: Tests common
+        working-directory: backend
         run: v -cc gcc test common/
 
       - name: Tests services
+        working-directory: backend
         run: v -cc gcc test services/
 
       - name: Build production
+        working-directory: backend
         run: v -cc gcc -prod -o /tmp/kpay-prod main.v
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build -- --configuration production

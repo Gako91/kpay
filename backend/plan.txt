@@ -1,0 +1,37 @@
+1. 🏢 Espace Employé & Gestion des Congés (Self-Service & HR)
+Portail Libre-Service Employé (ESS) :
+Espace dédié permettant à chaque employé de consulter et télécharger ses bulletins de paie de manière sécurisée.
+Mise à jour des informations personnelles (changement de RIB, adresse) soumise à validation RH.
+Gestion des Congés & Absences :
+Demandes de congés payés, RTT et arêtes maladie avec workflow de validation à 2 niveaux (Manager N+1
+→
+→ RH).
+Décompte et calcul automatique des soldes de congés sur le bulletin de paie.
+2. 🌍 Multi-Tenancy & Moteur de Règles Dynamique (SaaS & Multi-pays)
+Support Multi-Entreprises (Multi-Tenancy) :
+Isolation stricte des données par organisation (tenant_id) pour gérer plusieurs filiales ou clients.
+Moteur de Règles Fiscales Configurables :
+Paramétrage dynamique en base de données des tranches, taux et plafonds de cotisations (CNPS, CMU, ITS, IGR) avec gestion de l'historique par date d'effet (pour éviter de recompiler lors d'un changement de loi fiscale).
+3. 🔒 Sécurité d'Entreprise & Contrôle d'Accès (Enterprise Security)
+RBAC Avancé (Role-Based Access Control) :
+Gestion fine des rôles et permissions (Admin, Gestionnaire RH, Comptable, Manager, Employé).
+Authentification Avancée (MFA / SSO) :
+Support de l'authentification à deux facteurs (TOTP / Google Authenticator).
+Intégration Single Sign-On (OAuth2 / OIDC : Microsoft 365, Google Workspace, Keycloak).
+4. ⚡ Asynchronisme & Batch Processing (Performance)
+File de Traitement Asynchrone (Background Job Queue) :
+Génération en masse des bulletins de paie (pour des milliers d'employés) gérée en arrière-plan avec une file d'attente (Queue Worker).
+Notifications & Suivi en Temps Réel :
+Websockets ou Server-Sent Events (SSE) pour afficher une barre de progression en temps réel lors du traitement d'une paie mensuelle.
+5. 🏛️ Déclaratifs Sociaux, Fiscaux & Paiements (Compliance & Banking)
+Génération des États Récapitulatifs & Déclarations :
+Génération automatique des états fiscaux et sociaux obligatoires (ex: DISA pour la CNPS, État 301 pour la DGI).
+Intégrations Payouts (Mobile Money / APIs Bancaires) :
+Connexion aux APIs de paie Mobile Money (Orange Money, MTN, Wave) ou webhooks bancaires en plus de l'export SEPA XML.
+6. 📊 Observabilité, Métriques & DevOps (Production Readiness)
+Métriques Prometheus (/metrics) :
+Exposition des métriques de santé de l'application (temps de réponse HTTP, débit de requêtes, état du pool DB, nombre de bulletins calculés).
+Sondes Kubernetes (Probes) :
+Séparation des endpoints /health/liveness et /health/readiness pour l'orchestration de conteneurs.
+Tracing & Tracking d'Erreurs :
+Intégration d'outils comme Sentry ou OpenTelemetry pour capter les exceptions et les goulots d'étranglement en production.

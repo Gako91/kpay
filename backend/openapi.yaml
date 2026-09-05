@@ -1,0 +1,1631 @@
+openapi: 3.0.3
+info:
+  title: KPay API
+  description: API REST du système de paie haute performance KPay (Côte d'Ivoire & international).
+  version: 0.1.0
+  contact:
+    name: Équipe KPay
+servers:
+  - url: http://localhost:8080
+    description: Serveur de développement local
+  - url: http://localhost:9199
+    description: Serveur Docker Compose
+
+paths:
+  /:
+    get:
+      summary: Informations sur l'API
+      description: Endpoint public retournant le message de bienvenue et la version de l'API.
+      security: []
+      responses:
+        '200':
+          description: Bienvenue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /health:
+    get:
+      summary: Health check
+      description: Vérifie la disponibilité du service.
+      security: []
+      responses:
+        '200':
+          description: Service en ligne
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /auth/login:
+    post:
+      summary: Connexion
+      description: Authentifie un utilisateur et retourne un token JWT.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/register:
+    post:
+      summary: Créer un compte utilisateur
+      description: Crée un nouveau compte utilisateur avec un rôle.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Utilisateur créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Nom d'utilisateur déjà existant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /employees:
+    get:
+      summary: Liste paginée des employés
+      description: Récupère les employés actifs, paginés via les paramètres page et limit.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        '200':
+          description: Page d'employés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Employee'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+                  total_pages:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Créer un employé
+      description: Ajoute un nouvel employé dans la base de données.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '201':
+          description: Employé créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Email déjà existant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /employees/{id}:
+    get:
+      summary: Obtenir un employé par son ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Détails de l'employé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Mettre à jour un employé
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '200':
+          description: Employé mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Email déjà existant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+    delete:
+      summary: Désactiver un employé (soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Employé désactivé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /employees/{id}/contracts:
+    get:
+      summary: Historique des contrats d'un employé
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste des contrats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Contract'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /employees/{id}/payslips:
+    get:
+      summary: Historique des bulletins de paie d'un employé
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste des bulletins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payslip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /employees/{id}/timesheets:
+    get:
+      summary: Récupérer le timesheet d'un employé pour une période
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Timesheet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Timesheet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /employees/{id}/adjustments:
+    get:
+      summary: Récupérer les primes/retenues d'un employé
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste des ajustements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Adjustment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /contracts:
+    post:
+      summary: Créer un contrat de travail
+      description: Associe un contrat (salaire de base, taux horaire, dates) à un employé existant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractInput'
+      responses:
+        '201':
+          description: Contrat créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /contracts/{employee_id}:
+    get:
+      summary: Obtenir le contrat actif d'un employé
+      parameters:
+        - name: employee_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Contrat actif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payroll/calculate:
+    post:
+      summary: Calculer la paie individuelle (simulation)
+      description: Calcule le salaire brut, les cotisations CNPS, les taxes et le net sans enregistrer en base.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollRequest'
+      responses:
+        '200':
+          description: Résultat du calcul de paie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayRun'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payroll/run:
+    post:
+      summary: Exécuter et sauvegarder la paie mensuelle
+      description: Calcule, génère et persiste tous les bulletins de paie du mois pour tous les employés actifs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollRunRequest'
+      responses:
+        '201':
+          description: Paie mensuelle générée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payroll/book:
+    get:
+      summary: Obtenir le Livre de Paie mensuel (JSON)
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 9
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 2026
+      responses:
+        '200':
+          description: Livre de paie récapitulatif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollBookResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payroll/book/csv:
+    get:
+      summary: Télécharger le Livre de Paie au format CSV
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fichier CSV du livre de paie
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /payroll/book/pdf:
+    get:
+      summary: Télécharger le Livre de Paie au format PDF
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fichier PDF du livre de paie
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /payslips/{id}:
+    get:
+      summary: Consulter un bulletin de paie par son ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Données du bulletin de paie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payslip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payslips:
+    get:
+      summary: Liste des bulletins de paie d'une période
+      description: Retourne les bulletins générés pour un mois/année (période courante par défaut).
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste des bulletins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payslip'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payslips/{id}/pdf:
+    get:
+      summary: Télécharger le bulletin au format PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: PDF du bulletin
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payslips/{id}/submit:
+    post:
+      summary: Soumettre un bulletin pour approbation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bulletin soumis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /payslips/{id}/approve:
+    post:
+      summary: Approuver un bulletin soumis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bulletin approuvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /payslips/{id}/reject:
+    post:
+      summary: Rejeter un bulletin soumis (retour en brouillon)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bulletin rejeté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /payslips/{id}/pay:
+    post:
+      summary: Marquer un bulletin payé (doit être approuvé)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bulletin payé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /health/db:
+    get:
+      summary: Statistiques du pool de connexions PostgreSQL
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: État du pool
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /audit-logs:
+    get:
+      summary: Journal d'audit paginé et filtrable
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: actor
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resource
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entrées d'audit paginées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResponseAuditLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /timesheets:
+    post:
+      summary: Créer un timesheet
+      description: Enregistre les heures travaillées d'un employé pour un mois donné.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Timesheet'
+      responses:
+        '201':
+          description: Timesheet enregistré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /timesheets/{id}:
+    put:
+      summary: Mettre à jour un timesheet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Timesheet'
+      responses:
+        '200':
+          description: Timesheet mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      summary: Supprimer un timesheet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Timesheet supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /adjustments:
+    post:
+      summary: Créer un ajustement (prime/retenue)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Adjustment'
+      responses:
+        '201':
+          description: Ajustement créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /adjustments/{id}:
+    put:
+      summary: Mettre à jour un ajustement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Adjustment'
+      responses:
+        '200':
+          description: Ajustement mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      summary: Supprimer un ajustement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ajustement supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /tax-rules:
+    get:
+      summary: Récupérer les règles fiscales
+      description: "Liste des cotisations/règles fiscales, filtrables par pays (ex: CI)."
+      parameters:
+        - name: country
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Liste des règles fiscales
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaxRule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Créer une règle fiscale
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxRule'
+      responses:
+        '201':
+          description: Règle fiscale créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /tax-rules/{id}:
+    put:
+      summary: Mettre à jour une règle fiscale
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxRule'
+      responses:
+        '200':
+          description: Règle fiscale mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /leaves:
+    post:
+      summary: Soumettre une demande de congé
+      description: Crée une nouvelle demande de congé ou d'absence pour un employé.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLeaveRequestInput'
+      responses:
+        '201':
+          description: Demande de congé soumise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      summary: Lister les demandes de congé
+      description: "Admin/RH : toutes les demandes. Sinon filtrer par employé via le paramètre employee_id."
+      parameters:
+        - name: employee_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            description: Identifiant de l'employé (filtre)
+      responses:
+        '200':
+          description: Liste des demandes de congé
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaveRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /leaves/{id}/status:
+    put:
+      summary: Approuver ou refuser une demande de congé
+      description: Met à jour le statut d'une demande de congé ('approuve' ou 'refuse').
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLeaveStatusInput'
+      responses:
+        '200':
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /exports/employees/csv:
+    get:
+      summary: Exporter la liste des employés au format CSV
+      responses:
+        '200':
+          description: Fichier CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /exports/sepa:
+    get:
+      summary: Exporter les ordres de virement bancaire SEPA XML
+      description: Génère un fichier XML pain.001 pour les virements de salaires.
+      responses:
+        '200':
+          description: Fichier XML SEPA
+          content:
+            application/xml:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token JWT obtenu via POST /auth/login (header Authorization: Bearer <token>)."
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Clé API secrète configurée via KPAY_API_KEY.
+
+  responses:
+    Unauthorized:
+      description: Authentification requise ou clé API invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Données d'entrée invalides
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Accès refusé — rôle insuffisant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: État incohérent (paie déjà générée, workflow non autorisé)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: string
+          example: "1"
+        message:
+          type: string
+          example: "Opération réussie"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Message d'erreur explicatif"
+
+    EmployeeInput:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - position
+      properties:
+        first_name:
+          type: string
+          example: Jean
+        last_name:
+          type: string
+          example: Dupont
+        email:
+          type: string
+          format: email
+          example: jean.dupont@example.com
+        position:
+          type: string
+          example: Développeur Senior
+        matricule:
+          type: string
+          example: EMP-001
+        tax_parts:
+          type: number
+          format: float
+          default: 1.0
+          example: 2.5
+        iban:
+          type: string
+          example: CI9301000100123456789001
+        bic:
+          type: string
+          example: BNFACIXX
+
+    Employee:
+      allOf:
+        - $ref: '#/components/schemas/EmployeeInput'
+        - type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            is_active:
+              type: boolean
+              example: true
+
+    ContractInput:
+      type: object
+      required:
+        - employee_id
+        - base_salary
+        - hourly_rate
+      properties:
+        employee_id:
+          type: integer
+          example: 1
+        base_salary:
+          type: integer
+          description: Salaire brut de base en FCFA
+          example: 600000
+        hourly_rate:
+          type: integer
+          description: Taux horaire en FCFA
+          example: 3500
+        start_date:
+          type: string
+          format: date
+          example: "2026-01-01"
+
+    Contract:
+      allOf:
+        - $ref: '#/components/schemas/ContractInput'
+        - type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            is_active:
+              type: boolean
+              example: true
+
+    Timesheet:
+      type: object
+      required:
+        - employee_id
+        - month
+        - year
+      properties:
+        id:
+          type: integer
+          example: 1
+        employee_id:
+          type: integer
+          example: 1
+        month:
+          type: integer
+          description: Mois (1-12)
+          example: 9
+        year:
+          type: integer
+          example: 2026
+        hours_worked:
+          type: number
+          format: float
+          description: Heures travaillées
+          example: 151.67
+        overtime_h:
+          type: number
+          format: float
+          description: Heures supplémentaires
+          example: 0
+
+    Adjustment:
+      type: object
+      required:
+        - employee_id
+        - month
+        - year
+        - amount
+      properties:
+        id:
+          type: integer
+          example: 1
+        employee_id:
+          type: integer
+          example: 1
+        month:
+          type: integer
+          example: 9
+        year:
+          type: integer
+          example: 2026
+        amount:
+          type: integer
+          description: Prime (+) ou retenue (-) en FCFA
+          example: 50000
+        description:
+          type: string
+          example: Prime de rendement
+        date:
+          type: string
+          format: date-time
+
+    TaxRule:
+      type: object
+      required:
+        - name
+        - rate
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: CNPS Retraite
+        rate:
+          type: number
+          format: float
+          description: Taux (0.0 à 1.0)
+          example: 0.0412
+        is_employer:
+          type: boolean
+          description: true si la cotisation est à la charge de l'employeur
+          example: false
+        ceiling:
+          type: integer
+          description: Plafond en FCFA (0 = sans plafond)
+          example: 900000
+        fixed_amount:
+          type: integer
+          description: Montant fixe en FCFA (0 = calculé par taux)
+          example: 0
+        country:
+          type: string
+          description: "Code pays (ex: CI)"
+          example: CI
+
+    PayrollRequest:
+      type: object
+      required:
+        - employee_id
+        - month
+        - year
+      properties:
+        employee_id:
+          type: integer
+          example: 1
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+          example: 9
+        year:
+          type: integer
+          minimum: 2000
+          example: 2026
+
+    PayrollRunRequest:
+      type: object
+      required:
+        - month
+        - year
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+          example: 9
+        year:
+          type: integer
+          minimum: 2000
+          example: 2026
+
+    PayRun:
+      type: object
+      properties:
+        employee_id:
+          type: integer
+          example: 1
+        gross_pay:
+          type: integer
+          example: 650000
+        tax_amount:
+          type: integer
+          example: 85000
+        net_pay:
+          type: integer
+          example: 565000
+        date:
+          type: string
+          example: "2026-09-02 14:00:00"
+
+    Payslip:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        employee_id:
+          type: integer
+          example: 1
+        gross_amount:
+          type: integer
+          example: 650000
+        net_amount:
+          type: integer
+          example: 565000
+        is_paid:
+          type: boolean
+          example: false
+        pdf_path:
+          type: string
+          example: "storage/payslips/bulletin_1.pdf"
+        status:
+          type: string
+          example: "brouillon"
+          enum: [brouillon, soumis, approuve, rejete, paye]
+        approved_by:
+          type: string
+          example: "admin"
+        approved_at:
+          type: string
+          format: date-time
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        actor:
+          type: string
+        action:
+          type: string
+        resource:
+          type: string
+        resource_id:
+          type: integer
+        detail:
+          type: string
+        ip:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PageResponseAuditLog:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    PayrollBookItem:
+      type: object
+      properties:
+        payslip_id:
+          type: integer
+        employee_id:
+          type: integer
+        matricule:
+          type: string
+        full_name:
+          type: string
+        position:
+          type: string
+        gross_amount:
+          type: integer
+        total_taxes:
+          type: integer
+        net_amount:
+          type: integer
+        is_paid:
+          type: boolean
+
+    PayrollBookResponse:
+      type: object
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        total_employees:
+          type: integer
+        total_gross:
+          type: integer
+        total_taxes:
+          type: integer
+        total_net:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollBookItem'
+
+    RunResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        count:
+          type: integer
+          example: 15
+        payslips:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payslip'
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: paie.admin
+        password:
+          type: string
+          format: password
+          example: "********"
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        token:
+          type: string
+          description: "Token JWT à utiliser dans le header Authorization: Bearer <token>."
+        sub:
+          type: string
+          example: paie.admin
+        role:
+          type: string
+          enum: [admin, payroll_officer, accountant, employee]
+          example: admin
+        expires:
+          type: string
+          example: "2026-09-04 18:00:00"
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+        - email
+      properties:
+        username:
+          type: string
+          example: paie.admin
+        password:
+          type: string
+          format: password
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, payroll_officer, accountant, employee]
+          default: employee
+
+    CreateLeaveRequestInput:
+      type: object
+      required:
+        - employee_id
+        - leave_type
+        - start_date
+        - end_date
+      properties:
+        employee_id:
+          type: integer
+          example: 1
+        leave_type:
+          type: string
+          enum: [conge_paye, rtt, maladie, sans_solde]
+          example: conge_paye
+        start_date:
+          type: string
+          format: date
+          example: "2026-09-10"
+        end_date:
+          type: string
+          format: date
+          example: "2026-09-20"
+        days_count:
+          type: number
+          format: float
+          example: 10.0
+        reason:
+          type: string
+          example: "Congé annuel"
+
+    UpdateLeaveStatusInput:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [approuve, refuse]
+          example: approuve
+
+    LeaveRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        employee_id:
+          type: integer
+          example: 1
+        leave_type:
+          type: string
+          enum: [conge_paye, rtt, maladie, sans_solde]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        days_count:
+          type: number
+          format: float
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [en_attente, approuve, refuse]
+          example: en_attente
+        approved_by:
+          type: string
+          example: admin
+        created_at:
+          type: string
+          format: date-time
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
