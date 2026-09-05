@@ -26,16 +26,16 @@ jobs:
         run: v install pdf
 
       - name: Check compilation
-        run: v -enable-globals -check main.v
+        run: v -check main.v
 
       - name: Tests core
-        run: v -enable-globals -cc gcc test core/
+        run: v -cc gcc test core/
 
       - name: Tests common
-        run: v -enable-globals -cc gcc test common/
+        run: v -cc gcc test common/
 
       - name: Tests services
-        run: v -enable-globals -cc gcc test services/
+        run: v -cc gcc test services/
 
       - name: Build production
-        run: v -enable-globals -cc gcc -prod -o /tmp/kpay-prod main.v
+        run: v -cc gcc -prod -o /tmp/kpay-prod main.v

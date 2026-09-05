@@ -20,7 +20,7 @@ RUN v install pdf
 COPY . .
 
 # Compilation du binaire de production optimisé avec GCC
-RUN v -enable-globals -cc gcc -prod -o /build/kpay main.v
+RUN v -cc gcc -prod -o /build/kpay main.v
 
 # Image d'exécution finale ultra-légère
 FROM alpine:3.20

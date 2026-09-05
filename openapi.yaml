@@ -536,52 +536,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /payslips/{id}/pdf:
-    get:
-      summary: Télécharger le bulletin de paie au format PDF
-      description: Génère ou télécharge depuis MinIO le bulletin de paie officiel en PDF.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Fichier PDF du bulletin
-          content:
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /payslips/{id}/pay:
-    post:
-      summary: Marquer un bulletin comme payé
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Bulletin marqué comme payé
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   /payslips:
     get:
       summary: Liste des bulletins de paie d'une période

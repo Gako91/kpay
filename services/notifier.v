@@ -1,5 +1,6 @@
 module services
 
+import os
 import time
 
 // Niveau de log
@@ -10,14 +11,13 @@ pub enum LogLevel {
 	error_
 }
 
-// current_log_rank est le rang du niveau de log actif (0=debug,1=info,2=warn,3=error).
-// Valeur par défaut : info (1). Initialisé par init_log_level(config.log_level).
-// Nécessite la compilation avec `-enable-globals`.
-__global current_log_rank = 1
-
-// init_log_level configure le niveau de log minimum à partir d'une chaîne config.
-pub fn init_log_level(level string) {
-	current_log_rank = match level.to_lower() {
+// log_level_rank résout le niveau de log actif à chaque appel, sans variable
+// globale (V déconseille les globals). La config est lue depuis l'environnement
+// KPAY_LOG_LEVEL (info par défaut). En production, la quasi-totalité des appels
+// étant filtrée avant l'émission, ce coût est négligeable devant l'I/O de log.
+fn log_level_rank() int {
+	env_level := os.getenv_opt('KPAY_LOG_LEVEL') or { 'info' }
+	return match env_level.to_lower() {
 		'debug' { 0 }
 		'warn' { 2 }
 		'error' { 3 }
@@ -25,10 +25,17 @@ pub fn init_log_level(level string) {
 	}
 }
 
+// init_log_level configure le niveau de log minimum.
+// Le niveau est lu depuis KPAY_LOG_LEVEL ; cette fonction permet de définir
+// une valeur par défaut au démarrage si la variable n'est pas encore posée.
+pub fn init_log_level(level string) {
+	os.setenv('KPAY_LOG_LEVEL', level, true)
+}
+
 // Log sur la console
 pub fn log(level LogLevel, message string) {
 	// Filtrage par niveau : on n'émet que les messages >= niveau configuré
-	if rank(level) < current_log_rank {
+	if rank(level) < log_level_rank() {
 		return
 	}
 	timestamp := time.now().format_ss()
