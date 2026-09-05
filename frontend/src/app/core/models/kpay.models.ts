@@ -79,5 +79,5 @@ export interface AuthResponse {
 
 export interface LoginRequest {
     username: string;
-    password_hash: string;
+    password: string;
 }

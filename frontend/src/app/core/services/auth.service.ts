@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { AuthResponse, LoginRequest, User } from '../models/kpay.models';
 
@@ -14,7 +15,7 @@ export class AuthService {
     currentUser = signal<User | null>(this.getStoredUser());
     isAuthenticated = signal<boolean>(!!this.getToken());
 
-    constructor(private http: HttpClient) { }
+    constructor(private http: HttpClient, private router: Router) { }
 
     login(credentials: LoginRequest): Observable<AuthResponse> {
         return this.http.post<AuthResponse>('/api/v1/auth/login', credentials).pipe(
@@ -38,6 +39,7 @@ export class AuthService {
         localStorage.removeItem(this.USER_KEY);
         this.currentUser.set(null);
         this.isAuthenticated.set(false);
+        this.router.navigate(['/login']);
     }
 
     getToken(): string | null {

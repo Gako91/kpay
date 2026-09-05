@@ -84,7 +84,7 @@ export class LoginComponent {
         this.isLoading.set(true);
         this.errorMessage.set('');
 
-        this.authService.login({ username: this.username, password_hash: this.password }).subscribe({
+        this.authService.login({ username: this.username, password: this.password }).subscribe({
             next: () => {
                 this.isLoading.set(false);
                 this.router.navigate(['/dashboard']);
