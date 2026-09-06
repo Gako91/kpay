@@ -26,6 +26,7 @@ pub mut:
 	admin_svc    services.AdminService // Service administration plateforme (tenants)
 	audit_svc    services.AuditService // Service journal d'audit
 	mailer_svc   services.MailerService // Service d'envoi d'emails (SMTP)
+	profile_svc  services.ProfileService // Service profils employés (workflow validation RH)
 }
 
 // Contexte par requête
@@ -111,7 +112,8 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 		if !app.rate_limiter.allow(client_ip) {
 			ctx.res.set_status(.too_many_requests)
 			ctx.res.header.set_custom('Retry-After', '1') or {}
-			ctx.json(dto.error_response('Trop de requêtes — veuillez réessayer plus tard'))
+			ctx.res.header.set_custom('Content-Type', 'application/json') or {}
+			ctx.res.body = '{"success":false,"error":"Trop de requêtes — veuillez réessayer plus tard"}'
 			return false
 		}
 	}

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Employee, Contract, Payslip, LeaveRequest, PayRun } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, PayRun, ProfileChangeRequest } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -92,5 +92,32 @@ export class ApiService {
 
     setLeaveStatus(leaveId: number, status: 'approuve' | 'refuse'): Observable<{ success: boolean; message: string }> {
         return this.http.put<{ success: boolean; message: string }>(`${this.baseUrl}/leaves/${leaveId}/status`, { status });
+    }
+
+    // --- ESS : Profil & validation RH ---
+    getMe(): Observable<Employee> {
+        return this.http.get<Employee>(`${this.baseUrl}/me`);
+    }
+
+    requestProfileChange(field: string, value: string): Observable<ProfileChangeRequest> {
+        return this.http.post<ProfileChangeRequest>(`${this.baseUrl}/me/profile`, { field, value });
+    }
+
+    getMyProfileRequests(): Observable<ProfileChangeRequest[]> {
+        return this.http.get<ProfileChangeRequest[]>(`${this.baseUrl}/me/profile-requests`);
+    }
+
+    getProfileChanges(status?: string): Observable<ProfileChangeRequest[]> {
+        let params = new HttpParams();
+        if (status) params = params.set('status', status);
+        return this.http.get<ProfileChangeRequest[]>(`${this.baseUrl}/profile-changes`, { params });
+    }
+
+    approveProfileChange(id: number): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/profile-changes/${id}/approve`, {});
+    }
+
+    rejectProfileChange(id: number, reason: string): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/profile-changes/${id}/reject`, { reason });
     }
 }

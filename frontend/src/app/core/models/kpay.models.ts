@@ -16,8 +16,25 @@ export interface Employee {
     email: string;
     iban?: string;
     bic?: string;
+    phone?: string;
+    address?: string;
     tax_parts: number;
     is_active: boolean;
+    user_id?: number;
+}
+
+export interface ProfileChangeRequest {
+    id: number;
+    organization_id: number;
+    employee_id: number;
+    field_name: 'iban' | 'bic' | 'phone' | 'address' | 'tax_parts';
+    old_value: string;
+    new_value: string;
+    status: 'en_attente' | 'approuve' | 'refuse';
+    rejection_reason?: string;
+    requested_at: string;
+    reviewed_by?: string;
+    reviewed_at?: string;
 }
 
 export interface Contract {

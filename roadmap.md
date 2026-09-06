@@ -34,12 +34,12 @@ Avant de construire les fonctionnalités, sécuriser le socle.
   - [x] Endpoint `GET /me/payslips` : liste les bulletins de l'employé connecté uniquement
   - [x] Endpoint `GET /me/payslips/:id/pdf` : téléchargement sécurisé (JWT + propriétaire vérifié)
   - [x] Page frontend « Mes bulletins » avec filtre par mois/année
-- [ ] **Mise à jour des informations personnelles avec validation RH**
-  - [ ] Endpoint `PUT /me/profile` : RIB, adresse, téléphone (changements mis en file d'attente)
-  - [ ] Table `profile_change_request` (status : en_attente | approuve | refuse, dates de demande/validation)
-  - [ ] Workflow RH : `GET /profile-changes`, `POST /profile-changes/:id/approve|reject`
-  - [ ] Page frontend « Mon profil » (formulaire + historique des demandes)
-  - [ ] L'anomalie RIB est reportée sur l'export SEPA tant que non validée
+- [x] **Mise à jour des informations personnelles avec validation RH**
+  - [x] Endpoint `POST /me/profile` : RIB, BIC, téléphone, adresse, parts fiscales (changements mis en file d'attente)
+  - [x] Table `profile_change_request` (status : en_attente | approuve | refuse, dates de demande/validation)
+  - [x] Workflow RH : `GET /profile-changes`, `POST /profile-changes/:id/approve|reject` (motif obligatoire au refus, application au dossier à l'approbation)
+  - [x] Page frontend « Mon profil » (formulaire + historique des demandes) et « Validations profil » (RH)
+  - [x] L'anomalie RIB est reportée sur l'export SEPA tant que non validée (balise RmtInf/Ustrd)
 
 ### 1.2 Gestion des Congés & Absences — Workflow 2 niveaux
 

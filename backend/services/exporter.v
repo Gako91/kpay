@@ -109,6 +109,8 @@ pub:
 	recipient_name string
 	amount         i64
 	reference      string
+	// rib_pending: anomalie RIB signalée (modification IBAN/BIC en attente de validation RH)
+	rib_pending    bool
 }
 
 pub fn generate_sepa_xml(transfers []SepaTransfer) string {
@@ -123,6 +125,9 @@ pub fn generate_sepa_xml(transfers []SepaTransfer) string {
 		sb.write_string('\t\t<Amt><InstdAmt Ccy="XOF">${amount_fmt:.2f}</InstdAmt></Amt>\n')
 		sb.write_string('\t\t<Cdtr><Nm>${t.recipient_name}</Nm></Cdtr>\n')
 		sb.write_string('\t\t<CdtrAcct><Id><IBAN>${t.iban}</IBAN></Id></CdtrAcct>\n')
+		if t.rib_pending {
+			sb.write_string('\t\t<RmtInf><Ustrd>RIB en attente de validation - IBAN/BIC a modifier avant prochain virement</Ustrd></RmtInf>\n')
+		}
 		sb.write_string('\t</CdtTrfTxInf>\n')
 	}
 

@@ -277,6 +277,8 @@ pub fn (app &App) export_employees_csv_endpoint(mut ctx Context) veb.Result {
 @['/exports/sepa']
 pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
 	employees := app.employee_svc.get_all(ctx.user_org)
+	// Anomalie RIB : demandes IBAN/BIC en attente de validation RH (signalées dans le virement)
+	pending_rib := app.repo.get_pending_rib_changes(ctx.user_org)
 	mut transfers := []services.SepaTransfer{}
 	for emp in employees {
 		contract := app.repo.get_active_contract(emp.id, ctx.user_org) or { continue }
@@ -288,6 +290,7 @@ pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
 			recipient_name: '${emp.first_name} ${emp.last_name}'
 			amount: contract.base_salary
 			reference: 'SALAIRE-${emp.id}'
+			rib_pending: pending_rib[emp.id].len > 0
 		}
 	}
 	xml_content := services.generate_sepa_xml(transfers)

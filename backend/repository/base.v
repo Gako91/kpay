@@ -70,6 +70,8 @@ fn (mut r Repository) init_tables() ! {
 	r.db.exec('ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS iban TEXT DEFAULT '';") or {}
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS bic TEXT DEFAULT '';") or {}
+	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';") or {}
+	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS address TEXT DEFAULT '';") or {}
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS user_id INT;") or {}
 	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS tax_parts REAL DEFAULT 1.0;') or {}
 	r.db.exec('ALTER TABLE taxrule ADD COLUMN IF NOT EXISTS ceiling BIGINT DEFAULT 0;') or {}

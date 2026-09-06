@@ -99,3 +99,18 @@ pub fn (mut r Repository) delete_employee(emp_id int, org_id int) ! {
 		update models.Employee set is_active = false where id == emp_id && organization_id == org_id
 	}!
 }
+
+// update_employee_field met à jour un champ du dossier employé après validation RH.
+// column_name provient d'une liste blanche définie en code (services/profile_service.v) —
+// la valeur est passée en paramètre PostgreSQL. Réservé aux colonnes texte.
+pub fn (mut r Repository) update_employee_field(emp_id int, org_id int, column_name string, value string) ! {
+	// tax_parts est un REAL en base (cast PostgreSQL explicite requis depuis un paramètre texte)
+	cast_suffix := if column_name == 'tax_parts' { '::REAL' } else { '' }
+	r.db.exec_param_many('UPDATE employee SET ${column_name} = \$3${cast_suffix} WHERE id = \$1 AND organization_id = \$2', [
+		emp_id.str(),
+		org_id.str(),
+		value,
+	]) or {
+		return error("Échec de la mise à jour du champ '${column_name}': ${err}")
+	}
+}

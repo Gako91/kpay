@@ -73,6 +73,7 @@ fn main() {
 		admin_svc: services.new_admin_service(mut repo)
 		audit_svc: audit_svc
 		mailer_svc: mailer_svc
+		profile_svc: services.new_profile_service(mut repo)
 	}
 	app.payroll_svc.set_mailer(mailer_svc)
 
@@ -119,6 +120,11 @@ fn main() {
 	services.log_info('  POST /payslips/:id/submit  - Soumettre un bulletin (workflow)')
 	services.log_info('  POST /payslips/:id/approve - Approuver un bulletin (workflow)')
 	services.log_info('  POST /payslips/:id/reject  - Rejeter un bulletin (workflow)')
+	services.log_info('  POST /me/profile          - Demander une modification du profil (ESS, validation RH)')
+	services.log_info('  GET  /me/profile-requests - Historique des demandes (ESS)')
+	services.log_info('  GET  /profile-changes     - Demandes de modification (RH, &status=)')
+	services.log_info('  POST /profile-changes/:id/approve - Valider et appliquer (RH)')
+	services.log_info('  POST /profile-changes/:id/reject  - Refuser avec motif (RH)')
 
 	veb.run[api.App, api.Context](mut app, config.port)
 }
