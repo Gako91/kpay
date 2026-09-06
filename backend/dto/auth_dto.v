@@ -10,10 +10,11 @@ pub mut:
 // RegisterRequest - Corps de la requête de création d'un utilisateur
 pub struct RegisterRequest {
 pub mut:
-	username string
-	password string
-	email    string
-	role     string
+	username        string
+	password        string
+	email           string
+	role            string
+	organization_id int
 }
 
 // LoginResponse - Réponse de connexion avec token JWT
@@ -23,6 +24,7 @@ pub mut:
 	token   string
 	sub     string
 	role    string
+	org     int
 	expires string
 }
 

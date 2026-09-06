@@ -42,6 +42,7 @@ pub fn (mut app App) create_leave(mut ctx Context) veb.Result {
 	}
 
 	req := models.LeaveRequest{
+		organization_id: ctx.user_org
 		employee_id: input.employee_id
 		leave_type: input.leave_type
 		start_date: start
@@ -71,7 +72,7 @@ pub fn (mut app App) get_leaves(mut ctx Context) veb.Result {
 	emp_id_str := ctx.query['employee_id']
 	if emp_id_str.len > 0 {
 		emp_id := emp_id_str.int()
-		requests := app.repo.get_leave_requests_by_employee(emp_id) or {
+		requests := app.repo.get_leave_requests_by_employee(emp_id, ctx.user_org) or {
 			ctx.res.set_status(.internal_server_error)
 			return ctx.json(dto.error_response('Erreur chargement demandes de conge'))
 		}
@@ -83,7 +84,7 @@ pub fn (mut app App) get_leaves(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
 
-	requests := app.repo.get_all_leave_requests() or {
+	requests := app.repo.get_all_leave_requests(ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response('Erreur chargement demandes de conge'))
 	}
@@ -110,7 +111,7 @@ pub fn (mut app App) update_leave_status(mut ctx Context, id int) veb.Result {
 		return ctx.json(dto.error_response("Statut invalide. Valeurs autorisees: 'approuve', 'refuse'"))
 	}
 
-	app.repo.update_leave_status(id, input.status, ctx.user_sub) or {
+	app.repo.update_leave_status(id, input.status, ctx.user_sub, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response('Erreur mise à jour statut conge: ${err}'))
 	}

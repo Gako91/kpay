@@ -16,7 +16,7 @@ pub fn (app &App) get_timesheet(mut ctx Context, id int) veb.Result {
 	month := if ctx.query['month'].len > 0 { ctx.query['month'].int() } else { time.now().month }
 	year := if ctx.query['year'].len > 0 { ctx.query['year'].int() } else { time.now().year }
 
-	ts := app.repo.get_timesheet(id, month, year) or {
+	ts := app.repo.get_timesheet(id, month, year, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Aucun timesheet pour cette période'))
 	}
@@ -31,16 +31,20 @@ pub fn (mut app App) create_timesheet(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
 	body := ctx.req.data
-	ts := json2.decode[models.Timesheet](body) or {
+	decoded := json2.decode[models.Timesheet](body) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response('JSON invalide'))
+	}
+	ts := models.Timesheet{
+		...decoded
+		organization_id: ctx.user_org
 	}
 	dto.validate_timesheet(ts) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
 	// Vérifier que l'employé existe
-	app.employee_svc.get_by_id(ts.employee_id) or {
+	app.employee_svc.get_by_id(ts.employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé introuvable'))
 	}
@@ -71,12 +75,13 @@ pub fn (mut app App) update_timesheet(mut ctx Context, id int) veb.Result {
 	ts := models.Timesheet{
 		...decoded
 		id: id
+		organization_id: ctx.user_org
 	}
 	dto.validate_timesheet(ts) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.repo.update_timesheet(ts) or {
+	app.repo.update_timesheet(ts, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
@@ -94,7 +99,7 @@ pub fn (mut app App) delete_timesheet(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.repo.delete_timesheet(id) or {
+	app.repo.delete_timesheet(id, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
@@ -114,9 +119,9 @@ pub fn (app &App) get_adjustments(mut ctx Context, id int) veb.Result {
 	year := if ctx.query['year'].len > 0 { ctx.query['year'].int() } else { 0 }
 
 	adjustments := if month > 0 && year > 0 {
-		app.repo.get_adjustments_for_period(id, month, year)
+		app.repo.get_adjustments_for_period(id, month, year, ctx.user_org)
 	} else {
-		app.repo.get_adjustments(id)
+		app.repo.get_adjustments(id, ctx.user_org)
 	}
 	return ctx.json(adjustments)
 }
@@ -136,13 +141,14 @@ pub fn (mut app App) create_adjustment(mut ctx Context) veb.Result {
 	date_val := if decoded.date.year == 0 { time.now() } else { decoded.date }
 	adj := models.Adjustment{
 		...decoded
+		organization_id: ctx.user_org
 		date: date_val
 	}
 	dto.validate_adjustment(adj) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.employee_svc.get_by_id(adj.employee_id) or {
+	app.employee_svc.get_by_id(adj.employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé introuvable'))
 	}
@@ -174,13 +180,14 @@ pub fn (mut app App) update_adjustment(mut ctx Context, id int) veb.Result {
 	adj := models.Adjustment{
 		...decoded
 		id: id
+		organization_id: ctx.user_org
 		date: date_val
 	}
 	dto.validate_adjustment(adj) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.repo.update_adjustment(adj) or {
+	app.repo.update_adjustment(adj, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
@@ -198,7 +205,7 @@ pub fn (mut app App) delete_adjustment(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.repo.delete_adjustment(id) or {
+	app.repo.delete_adjustment(id, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}

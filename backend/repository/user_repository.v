@@ -24,9 +24,9 @@ pub fn (r &Repository) get_user_by_username(username string) ?models.User {
 	return result[0]
 }
 
-pub fn (r &Repository) get_all_users() []models.User {
+pub fn (r &Repository) get_all_users(org_id int) []models.User {
 	return sql r.db {
-		select from models.User
+		select from models.User where organization_id == org_id
 	} or { [] }
 }
 

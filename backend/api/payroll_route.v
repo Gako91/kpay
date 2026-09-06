@@ -23,13 +23,14 @@ pub fn (app &App) calculate_payroll(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
-	contract := app.repo.get_active_contract(req.employee_id) or {
+	contract := app.repo.get_active_contract(req.employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Aucun contrat actif'))
 	}
 
-	timesheet := app.repo.get_timesheet(req.employee_id, req.month, req.year) or {
+	timesheet := app.repo.get_timesheet(req.employee_id, req.month, req.year, ctx.user_org) or {
 		models.Timesheet{
+			organization_id: ctx.user_org
 			employee_id: req.employee_id
 			month: req.month
 			year: req.year
@@ -39,22 +40,24 @@ pub fn (app &App) calculate_payroll(mut ctx Context) veb.Result {
 	}
 
 	// Cotisations CNPS (Côte d'Ivoire) chargées depuis la base
-	cnps_rules := app.repo.get_tax_rules('CI')
+	cnps_rules := app.repo.get_tax_rules('CI', ctx.user_org)
 
 	// Ajustements du mois (primes/retenues filtrés par période) + heures supplémentaires CI
-	mut adjustments := app.repo.get_adjustments_for_period(req.employee_id, req.month, req.year)
+	mut adjustments := app.repo.get_adjustments_for_period(req.employee_id, req.month, req.year, ctx.user_org)
 	overtime_pay := core.calculate_overtime_ci(contract.hourly_rate, timesheet.overtime_h)
 	if overtime_pay > 0 {
 		adjustments << models.Adjustment{
+			organization_id: ctx.user_org
 			employee_id: req.employee_id
 			amount: overtime_pay
 			description: 'Heures supplémentaires'
 		}
 	}
 
-	emp := app.repo.get_employee_by_id(req.employee_id) or {
+	emp := app.repo.get_employee_by_id(req.employee_id, ctx.user_org) or {
 		models.Employee{
 			id: req.employee_id
+			organization_id: ctx.user_org
 			tax_parts: 1.0
 		}
 	}
@@ -88,7 +91,7 @@ pub fn (mut app App) mark_payslip_paid(mut ctx Context, id int) veb.Result {
 	mut payroll_service := services.new_payroll_service(mut app.repo)
 	payroll_service.set_mailer(app.mailer_svc)
 
-	payroll_service.mark_paid(id) or {
+	payroll_service.mark_paid(ctx.user_org, id) or {
 		if err.msg().contains('non approuvé') || err.msg().contains('introuvable') {
 			ctx.res.set_status(.conflict)
 			return ctx.json(dto.error_response(err.msg()))
@@ -112,7 +115,7 @@ pub fn (mut app App) submit_payslip(mut ctx Context, id int) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 	mut payroll_service := services.new_payroll_service(mut app.repo)
-	payroll_service.submit_payslip(id) or {
+	payroll_service.submit_payslip(ctx.user_org, id) or {
 		if err.msg().contains('introuvable') {
 			ctx.res.set_status(.not_found)
 			return ctx.json(dto.error_response(err.msg()))
@@ -136,7 +139,7 @@ pub fn (mut app App) approve_payslip(mut ctx Context, id int) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 	mut payroll_service := services.new_payroll_service(mut app.repo)
-	payroll_service.approve_payslip(id, ctx.user_sub) or {
+	payroll_service.approve_payslip(ctx.user_org, id, ctx.user_sub) or {
 		if err.msg().contains('introuvable') {
 			ctx.res.set_status(.not_found)
 			return ctx.json(dto.error_response(err.msg()))
@@ -160,7 +163,7 @@ pub fn (mut app App) reject_payslip(mut ctx Context, id int) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 	mut payroll_service := services.new_payroll_service(mut app.repo)
-	payroll_service.reject_payslip(id) or {
+	payroll_service.reject_payslip(ctx.user_org, id) or {
 		if err.msg().contains('introuvable') {
 			ctx.res.set_status(.not_found)
 			return ctx.json(dto.error_response(err.msg()))
@@ -179,7 +182,7 @@ pub fn (app &App) get_payslip(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	payslip := app.repo.get_payslip_by_id(id) or {
+	payslip := app.repo.get_payslip_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Bulletin non trouvé'))
 	}
@@ -199,7 +202,7 @@ pub fn (app &App) list_payslips(mut ctx Context) veb.Result {
 	} else {
 		time.now().year
 	}
-	payslips := app.repo.get_payslips_by_period(month, year)
+	payslips := app.repo.get_payslips_by_period(month, year, ctx.user_org)
 	return ctx.json(payslips)
 }
 
@@ -210,11 +213,11 @@ pub fn (app &App) get_employee_payslips(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.employee_svc.get_by_id(id) or {
+	app.employee_svc.get_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
-	payslips := app.repo.get_payslips_by_employee(id)
+	payslips := app.repo.get_payslips_by_employee(id, ctx.user_org)
 	return ctx.json(payslips)
 }
 
@@ -225,22 +228,23 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	payslip := app.repo.get_payslip_by_id(id) or {
+	payslip := app.repo.get_payslip_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Bulletin non trouvé'))
 	}
-	emp := app.repo.get_employee_by_id(payslip.employee_id) or {
+	emp := app.repo.get_employee_by_id(payslip.employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
-	contract := app.repo.get_active_contract(emp.id) or {
+	contract := app.repo.get_active_contract(emp.id, ctx.user_org) or {
 		models.Contract{
+			organization_id: ctx.user_org
 			employee_id: emp.id
 			base_salary: payslip.gross_amount
 		}
 	}
-	cnps_rules := app.repo.get_tax_rules('CI')
-	adjustments := app.repo.get_adjustments_for_period(emp.id, payslip.period_start.month, payslip.period_start.year)
+	cnps_rules := app.repo.get_tax_rules('CI', ctx.user_org)
+	adjustments := app.repo.get_adjustments_for_period(emp.id, payslip.period_start.month, payslip.period_start.year, ctx.user_org)
 
 	// Fix 3 : affichage basé sur les montants FIGÉS du bulletin (gross_amount, total_taxes, net_amount)
 	// et non sur un recalcul complet. On ne recalcule que le détail des lignes de cotisations
@@ -249,7 +253,8 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 	tax_details := core.calculate_pay_full_ci(contract, cnps_rules, adjustments, emp.tax_parts).tax_details
 	employer_details, employer_total := core.calculate_employer_contributions_ci(cnps_rules, frozen_gross)
 
-	object_name := 'bulletin_${id}.pdf'
+	// Objet MinIO préfixé par organisation pour assurer l'isolation des fichiers entre tenants
+	object_name := 'org_${ctx.user_org}/bulletin_${id}.pdf'
 	mut pdf_bytes := []u8{}
 
 	// Tenter de récupérer depuis MinIO en priorité
@@ -261,7 +266,7 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 			return ctx.json(dto.error_response('Erreur lors de la génération du PDF'))
 		}
 		if payslip.pdf_path.len == 0 {
-			app.repo.update_payslip_pdf_path(id, gen_path) or {
+			app.repo.update_payslip_pdf_path(id, gen_path, ctx.user_org) or {
 				services.log_warn('Impossible de mettre à jour pdf_path pour bulletin ${id}: ${err}')
 			}
 		}
@@ -306,7 +311,7 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 
 	mut payroll_service := services.new_payroll_service(mut app.repo)
 	payroll_service.set_mailer(app.mailer_svc)
-	payslips := payroll_service.run_and_save_monthly_payroll(req.month, req.year) or {
+	payslips := payroll_service.run_and_save_monthly_payroll(ctx.user_org, req.month, req.year) or {
 		if err.msg().contains('déjà été générée') {
 			ctx.res.set_status(.conflict)
 			return ctx.json(dto.error_response(err.msg()))
@@ -323,7 +328,7 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 // GET /exports/employees/csv - Exporter les employés au format CSV
 @['/exports/employees/csv']
 pub fn (app &App) export_employees_csv_endpoint(mut ctx Context) veb.Result {
-	employees := app.employee_svc.get_all()
+	employees := app.employee_svc.get_all(ctx.user_org)
 	csv_content := services.generate_employees_csv(employees)
 	ctx.res.header.set(.content_type, 'text/csv; charset=utf-8')
 	return ctx.text(csv_content)
@@ -332,10 +337,10 @@ pub fn (app &App) export_employees_csv_endpoint(mut ctx Context) veb.Result {
 // GET /exports/sepa - Générer le fichier de virement SEPA XML
 @['/exports/sepa']
 pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
-	employees := app.employee_svc.get_all()
+	employees := app.employee_svc.get_all(ctx.user_org)
 	mut transfers := []services.SepaTransfer{}
 	for emp in employees {
-		contract := app.repo.get_active_contract(emp.id) or { continue }
+		contract := app.repo.get_active_contract(emp.id, ctx.user_org) or { continue }
 		iban := if emp.iban.len > 0 { emp.iban } else { 'CI93010001001234567890${emp.id:02d}' }
 		bic := if emp.bic.len > 0 { emp.bic } else { 'BNFACIXX' }
 		transfers << services.SepaTransfer{
@@ -357,7 +362,7 @@ pub fn (app &App) get_payroll_book_json(mut ctx Context) veb.Result {
 	month := ctx.query['month'] or { '9' }.int()
 	year := ctx.query['year'] or { '2026' }.int()
 
-	book := app.payroll_svc.get_payroll_book(month, year)
+	book := app.payroll_svc.get_payroll_book(ctx.user_org, month, year)
 	return ctx.json(book)
 }
 
@@ -367,7 +372,7 @@ pub fn (app &App) get_payroll_book_csv(mut ctx Context) veb.Result {
 	month := ctx.query['month'] or { '9' }.int()
 	year := ctx.query['year'] or { '2026' }.int()
 
-	book := app.payroll_svc.get_payroll_book(month, year)
+	book := app.payroll_svc.get_payroll_book(ctx.user_org, month, year)
 	csv_content := services.generate_payroll_book_csv(book)
 
 	ctx.res.header.set(.content_type, 'text/csv; charset=utf-8')
@@ -381,7 +386,7 @@ pub fn (app &App) get_payroll_book_pdf(mut ctx Context) veb.Result {
 	month := ctx.query['month'] or { '9' }.int()
 	year := ctx.query['year'] or { '2026' }.int()
 
-	book := app.payroll_svc.get_payroll_book(month, year)
+	book := app.payroll_svc.get_payroll_book(ctx.user_org, month, year)
 	pdf_bytes := services.generate_payroll_book_pdf(book) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response('Erreur lors de la génération du PDF du Livre de Paie'))

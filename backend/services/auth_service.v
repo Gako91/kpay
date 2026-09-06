@@ -38,7 +38,7 @@ pub fn (s &AuthService) login(username string, password string) !dto.LoginRespon
 		return error('Identifiants invalides')
 	}
 
-	token := common.generate_jwt(user.username, user.role, s.jwt_secret, s.jwt_ttl, 'kpay') or {
+	token := common.generate_jwt(user.username, user.role, user.organization_id, s.jwt_secret, s.jwt_ttl, 'kpay') or {
 		return error('Erreur génération token: ${err}')
 	}
 
@@ -47,26 +47,29 @@ pub fn (s &AuthService) login(username string, password string) !dto.LoginRespon
 		token: token
 		sub: user.username
 		role: user.role
+		org: user.organization_id
 		expires: time.now().add_seconds(s.jwt_ttl).format_ss()
 	}
 }
 
 // register crée un nouveau compte utilisateur.
-pub fn (mut s AuthService) register(username string, password string, email string, role string) !int {
+pub fn (mut s AuthService) register(username string, password string, email string, role string, organization_id int) !int {
 	if s.jwt_secret.len == 0 {
 		return error('JWT secret non configuré')
 	}
 	effective_role := if role.len > 0 { role } else { 'employee' }
+	effective_org := if organization_id > 0 { organization_id } else { 1 }
 	user := models.User{
 		username: username
 		password_hash: common.hash_password(password)
 		role: effective_role
 		email: email
+		organization_id: effective_org
 		is_active: true
 		created_at: time.now()
 	}
 	inserted_id := s.repo.create_user(user)!
-	log_info('Utilisateur créé: ${username} (${effective_role})')
+	log_info('Utilisateur créé: ${username} (${effective_role}) org=${effective_org}')
 	return inserted_id
 }
 

@@ -30,11 +30,11 @@ fn filter_audit_logs(logs []models.AuditLog, actor string, action string, resour
 	return filtered
 }
 
-// get_audit_logs retourne les entrées d'audit triées du plus récent au plus ancien.
+// get_audit_logs retourne les entrées d'audit d'une organisation triées du plus récent au plus ancien.
 // `actor`, `action` et `resource` filtrent le résultat (chaîne vide = aucun filtre).
-pub fn (r &Repository) get_audit_logs(actor string, action string, resource string, limit int, offset int) []models.AuditLog {
+pub fn (r &Repository) get_audit_logs(actor string, action string, resource string, limit int, offset int, org_id int) []models.AuditLog {
 	all_logs := sql r.db {
-		select from models.AuditLog order by id desc
+		select from models.AuditLog where organization_id == org_id order by id desc
 	} or { [] }
 	filtered := filter_audit_logs(all_logs, actor, action, resource)
 	start := if offset < filtered.len { offset } else { filtered.len }
@@ -48,10 +48,10 @@ pub fn (r &Repository) get_audit_logs(actor string, action string, resource stri
 	return filtered[start..end]
 }
 
-// count_audit_logs compte les entrées d'audit selon les filtres donnés.
-pub fn (r &Repository) count_audit_logs(actor string, action string, resource string) int {
+// count_audit_logs compte les entrées d'audit d'une organisation selon les filtres donnés.
+pub fn (r &Repository) count_audit_logs(actor string, action string, resource string, org_id int) int {
 	all_logs := sql r.db {
-		select from models.AuditLog
+		select from models.AuditLog where organization_id == org_id
 	} or { [] }
 	return filter_audit_logs(all_logs, actor, action, resource).len
 }

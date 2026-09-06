@@ -20,10 +20,10 @@ export class AuthService {
     login(credentials: LoginRequest): Observable<AuthResponse> {
         return this.http.post<AuthResponse>('/api/v1/auth/login', credentials).pipe(
             tap((response) => {
-                // Le backend renvoie { token, sub, role, expires } et non un objet user complet
+                // Le backend renvoie { token, sub, org, role, expires } et non un objet user complet
                 const user: User = {
                     id: 0,
-                    organization_id: 1,
+                    organization_id: response.org,
                     username: response.sub,
                     role: (response.role as User['role']) || 'employee',
                     email: '',

@@ -17,8 +17,9 @@ pub fn new_audit_service(mut repo repository.Repository) AuditService {
 }
 
 // record ajoute une entrée au journal d'audit (best effort : n'échoue pas la requête).
-pub fn (s &AuditService) record(actor string, action string, resource string, resource_id int, detail string, ip string) {
+pub fn (s &AuditService) record(org_id int, actor string, action string, resource string, resource_id int, detail string, ip string) {
 	entry := models.AuditLog{
+		organization_id: org_id
 		actor: actor
 		action: action
 		resource: resource
@@ -33,9 +34,9 @@ pub fn (s &AuditService) record(actor string, action string, resource string, re
 	}
 }
 
-// list retourne les entrées d'audit filtrées, paginées du plus récent au plus ancien.
-pub fn (s &AuditService) list(actor string, action string, resource string, page int, page_size int) ([]models.AuditLog, int) {
-	total := s.repo.count_audit_logs(actor, action, resource)
-	logs := s.repo.get_audit_logs(actor, action, resource, page_size, (page - 1) * page_size)
+// list retourne les entrées d'audit d'une organisation, filtrées, paginées du plus récent au plus ancien.
+pub fn (s &AuditService) list(org_id int, actor string, action string, resource string, page int, page_size int) ([]models.AuditLog, int) {
+	total := s.repo.count_audit_logs(actor, action, resource, org_id)
+	logs := s.repo.get_audit_logs(actor, action, resource, page_size, (page - 1) * page_size, org_id)
 	return logs, total
 }

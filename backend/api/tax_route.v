@@ -10,9 +10,9 @@ import dto
 pub fn (app &App) get_tax_rules(mut ctx Context) veb.Result {
 	country := ctx.query['country'] or { '' }
 	rules := if country.len > 0 {
-		app.repo.get_tax_rules(country)
+		app.repo.get_tax_rules(country, ctx.user_org)
 	} else {
-		app.repo.get_all_tax_rules()
+		app.repo.get_all_tax_rules(ctx.user_org)
 	}
 	return ctx.json(rules)
 }
@@ -25,9 +25,13 @@ pub fn (mut app App) create_tax_rule(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
 	body := ctx.req.data
-	rule := json2.decode[models.TaxRule](body) or {
+	decoded := json2.decode[models.TaxRule](body) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response('JSON invalide'))
+	}
+	rule := models.TaxRule{
+		...decoded
+		organization_id: ctx.user_org
 	}
 	if rule.name.trim_space().len < 2 || rule.rate < 0 || rule.rate > 1 {
 		ctx.res.set_status(.bad_request)
@@ -60,12 +64,13 @@ pub fn (mut app App) update_tax_rule(mut ctx Context, id int) veb.Result {
 	rule := models.TaxRule{
 		...decoded
 		id: id
+		organization_id: ctx.user_org
 	}
-	app.repo.get_tax_rule_by_id(id) or {
+	app.repo.get_tax_rule_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Règle fiscale non trouvée'))
 	}
-	app.repo.update_tax_rule(rule) or {
+	app.repo.update_tax_rule(rule, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}

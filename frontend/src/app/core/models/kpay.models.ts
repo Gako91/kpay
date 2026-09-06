@@ -74,6 +74,7 @@ export interface AuthResponse {
     token: string;
     sub: string;
     role: string;
+    org: number;
     expires: string;
 }
 

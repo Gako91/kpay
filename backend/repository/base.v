@@ -61,6 +61,13 @@ fn (mut r Repository) init_tables() ! {
 	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
 	r.db.exec('ALTER TABLE payslip ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
 	r.db.exec('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
+	// Scope multi-tenant des tables restantes
+	r.db.exec('ALTER TABLE contract ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
+	r.db.exec('ALTER TABLE taxrule ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
+	r.db.exec('ALTER TABLE timesheet ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
+	r.db.exec('ALTER TABLE adjustment ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
+	r.db.exec('ALTER TABLE leaverequest ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
+	r.db.exec('ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS iban TEXT DEFAULT '';") or {}
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS bic TEXT DEFAULT '';") or {}
 	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS tax_parts REAL DEFAULT 1.0;') or {}

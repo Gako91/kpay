@@ -19,7 +19,7 @@ pub fn (app &App) get_employees(mut ctx Context) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response("Le paramètre 'limit' doit être >= 1"))
 	}
-	employees, total := app.repo.get_employees_paginated(page, page_size)
+	employees, total := app.repo.get_employees_paginated(page, page_size, ctx.user_org)
 	items := dto.PageResponse[models.Employee]{
 		data: employees
 		page: page
@@ -37,7 +37,7 @@ pub fn (app &App) get_employee(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	emp := app.employee_svc.get_by_id(id) or {
+	emp := app.employee_svc.get_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
@@ -52,9 +52,13 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
 	body := ctx.req.data
-	emp := json2.decode[models.Employee](body) or {
+	decoded := json2.decode[models.Employee](body) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response('JSON invalide'))
+	}
+	emp := models.Employee{
+		...decoded
+		organization_id: ctx.user_org
 	}
 
 	dto.validate_employee(emp) or {
@@ -84,7 +88,7 @@ pub fn (app &App) get_contract(mut ctx Context, employee_id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	contract := app.contract_svc.get_active(employee_id) or {
+	contract := app.contract_svc.get_active(employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Aucun contrat actif'))
 	}
@@ -98,11 +102,11 @@ pub fn (app &App) get_employee_contracts(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.employee_svc.get_by_id(id) or {
+	app.employee_svc.get_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
-	contracts := app.contract_svc.get_by_employee(id)
+	contracts := app.contract_svc.get_by_employee(id, ctx.user_org)
 	return ctx.json(contracts)
 }
 
@@ -126,6 +130,7 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 	emp := models.Employee{
 		...decoded
 		id: id // Forcer l'ID depuis l'URL
+		organization_id: ctx.user_org
 	}
 
 	dto.validate_employee(emp) or {
@@ -134,7 +139,7 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 	}
 
 	// Vérifier que l'employé existe
-	app.employee_svc.get_by_id(id) or {
+	app.employee_svc.get_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
@@ -162,11 +167,11 @@ pub fn (mut app App) delete_employee(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.employee_svc.get_by_id(id) or {
+	app.employee_svc.get_by_id(id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
-	app.employee_svc.deactivate(id) or {
+	app.employee_svc.deactivate(id, ctx.user_org) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response('Erreur lors de la désactivation'))
 	}
@@ -189,7 +194,7 @@ pub fn (mut app App) create_contract(mut ctx Context) veb.Result {
 	}
 
 	// Vérifier que l'employé existe
-	app.employee_svc.get_by_id(contract.employee_id) or {
+	app.employee_svc.get_by_id(contract.employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé introuvable (id: ${contract.employee_id})'))
 	}
@@ -202,6 +207,7 @@ pub fn (mut app App) create_contract(mut ctx Context) veb.Result {
 	}
 	ready := models.Contract{
 		...contract
+		organization_id: ctx.user_org
 		start_date: effective_start
 	}
 

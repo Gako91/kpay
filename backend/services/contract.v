@@ -15,12 +15,12 @@ pub fn new_contract_service(mut repo repository.Repository) ContractService {
 	}
 }
 
-pub fn (s &ContractService) get_active(employee_id int) ?models.Contract {
-	return s.repo.get_active_contract(employee_id)
+pub fn (s &ContractService) get_active(employee_id int, org_id int) ?models.Contract {
+	return s.repo.get_active_contract(employee_id, org_id)
 }
 
-pub fn (s &ContractService) get_by_employee(employee_id int) []models.Contract {
-	return s.repo.get_contracts_by_employee(employee_id)
+pub fn (s &ContractService) get_by_employee(employee_id int, org_id int) []models.Contract {
+	return s.repo.get_contracts_by_employee(employee_id, org_id)
 }
 
 pub fn (mut s ContractService) create(contract models.Contract) !int {

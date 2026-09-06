@@ -36,6 +36,7 @@ pub struct Context {
 pub mut:
 	user_sub  string // Identifiant de l'utilisateur authentifié (JWT sub)
 	user_role string // Rôle de l'utilisateur authentifié
+	user_org  int // Organisation (tenant) de l'utilisateur authentifié
 }
 
 // has_role vérifie que l'utilisateur courant possède l'un des rôles requis.
@@ -129,13 +130,16 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 		}
 		ctx.user_sub = claims.sub
 		ctx.user_role = claims.role
+		ctx.user_org = claims.org
 		return true
 	}
 
 	// 2) Fallback : clé API (compatibilité / intégrations)
+	// L'API key est associée à l'organisation par défaut (tenant 1).
 	provided_key := ctx.req.header.get_custom('X-Api-Key') or { '' }
 	if provided_key.len > 0 && provided_key == app.api_key {
 		ctx.user_role = 'admin'
+		ctx.user_org = 1
 		return true
 	}
 
@@ -153,7 +157,7 @@ const openapi_yaml_spec = $embed_file('../openapi.yaml').to_string()
 pub fn (app &App) audit_action(mut ctx Context, action string, resource string, resource_id int, detail string) {
 	actor := if ctx.user_sub.len > 0 { ctx.user_sub } else { 'anonyme' }
 	ip := ctx.req.header.get_custom('X-Forwarded-For') or { '' }
-	app.audit_svc.record(actor, action, resource, resource_id, detail, ip)
+	app.audit_svc.record(ctx.user_org, actor, action, resource, resource_id, detail, ip)
 }
 
 // ==================== ENDPOINTS ====================
@@ -270,7 +274,7 @@ pub fn (app &App) get_audit_logs(mut ctx Context) veb.Result {
 	action := if ctx.query['action'].len > 0 { ctx.query['action'] } else { '' }
 	resource := if ctx.query['resource'].len > 0 { ctx.query['resource'] } else { '' }
 
-	logs, total := app.audit_svc.list(actor, action, resource, page, page_size)
+	logs, total := app.audit_svc.list(ctx.user_org, actor, action, resource, page, page_size)
 	items := dto.PageResponse[models.AuditLog]{
 		data: logs
 		page: page
@@ -318,14 +322,7 @@ pub fn (mut app App) auth_register(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
-	id := app.repo.create_user(models.User{
-		username: req.username
-		password_hash: common.hash_password(req.password)
-		role: req.role
-		email: req.email
-		is_active: true
-		created_at: time.now()
-	}) or {
+	id := app.auth_svc.register(req.username, req.password, req.email, req.role, req.organization_id) or {
 		if err.msg().contains('existe déjà') {
 			app.audit_action(mut ctx, 'auth.register', 'user', 0, "Échec — nom '${req.username}' déjà pris")
 			ctx.res.set_status(.conflict)

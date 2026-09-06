@@ -2,7 +2,7 @@ module common
 
 fn test_generate_and_verify_jwt() {
 	secret := 'test_secret_123'
-	token := generate_jwt('paie.admin', 'admin', secret, 3600, 'kpay') or {
+	token := generate_jwt('paie.admin', 'admin', 1, secret, 3600, 'kpay') or {
 		assert false, 'JWT generation failed: ${err}'
 		return
 	}
@@ -14,11 +14,12 @@ fn test_generate_and_verify_jwt() {
 	}
 	assert claims.sub == 'paie.admin'
 	assert claims.role == 'admin'
+	assert claims.org == 1
 	assert claims.iss == 'kpay'
 }
 
 fn test_jwt_wrong_secret() {
-	token := generate_jwt('user', 'employee', 'secret_1', 3600, 'kpay') or { return }
+	token := generate_jwt('user', 'employee', 1, 'secret_1', 3600, 'kpay') or { return }
 	_ := verify_jwt(token, 'wrong_secret') or {
 		// Expected: verification must fail with wrong secret
 		return
@@ -28,7 +29,7 @@ fn test_jwt_wrong_secret() {
 
 fn test_jwt_expired() {
 	// exp in the past
-	token := generate_jwt('user', 'employee', 'secret_x', -10, 'kpay') or { return }
+	token := generate_jwt('user', 'employee', 1, 'secret_x', -10, 'kpay') or { return }
 	_ = verify_jwt(token, 'secret_x') or {
 		return
 	}

@@ -15,12 +15,12 @@ pub fn new_employee_service(mut repo repository.Repository) EmployeeService {
 	}
 }
 
-pub fn (s &EmployeeService) get_all() []models.Employee {
-	return s.repo.get_all_employees()
+pub fn (s &EmployeeService) get_all(org_id int) []models.Employee {
+	return s.repo.get_all_employees(org_id)
 }
 
-pub fn (s &EmployeeService) get_by_id(id int) ?models.Employee {
-	return s.repo.get_employee_by_id(id)
+pub fn (s &EmployeeService) get_by_id(id int, org_id int) ?models.Employee {
+	return s.repo.get_employee_by_id(id, org_id)
 }
 
 pub fn (mut s EmployeeService) create(emp models.Employee) !int {
@@ -34,7 +34,7 @@ pub fn (mut s EmployeeService) update(emp models.Employee) ! {
 	log_info('Employé mis à jour: ID ${emp.id}')
 }
 
-pub fn (mut s EmployeeService) deactivate(id int) ! {
-	s.repo.delete_employee(id)!
+pub fn (mut s EmployeeService) deactivate(id int, org_id int) ! {
+	s.repo.delete_employee(id, org_id)!
 	log_info('Employé désactivé: ID ${id}')
 }

@@ -9,11 +9,12 @@ import time
 // Claims représente le contenu (payload) d'un token JWT.
 struct Claims {
 pub mut:
-	sub   string
-	role  string
-	exp   i64
-	iat   i64
-	iss   string
+	sub  string
+	role string
+	org  int
+	exp  i64
+	iat  i64
+	iss  string
 }
 
 // base64url_encode encode des bytes en base64url sans padding (=).
@@ -34,9 +35,10 @@ fn base64url_decode(s string) ![]u8 {
 // generate_jwt crée un token JWT signé en HS256.
 // `sub` identifiant (ex: user id ou username)
 // `role` rôle de l'utilisateur
+// `org` identifiant de l'organisation (tenant)
 // `secret` clé secrète de signature
 // `ttl_secs` durée de validité en secondes
-pub fn generate_jwt(sub string, role string, secret string, ttl_secs int, issuer string) !string {
+pub fn generate_jwt(sub string, role string, org int, secret string, ttl_secs int, issuer string) !string {
 	header_json := '{"alg":"HS256","typ":"JWT"}'
 	header_b64 := base64url_encode(header_json.bytes())
 
@@ -44,6 +46,7 @@ pub fn generate_jwt(sub string, role string, secret string, ttl_secs int, issuer
 	claims := Claims{
 		sub: sub
 		role: role
+		org: org
 		exp: now + i64(ttl_secs)
 		iat: now
 		iss: issuer
@@ -95,6 +98,7 @@ pub struct JwtClaims {
 pub:
 	sub  string
 	role string
+	org  int
 	exp  i64
 	iat  i64
 	iss  string
