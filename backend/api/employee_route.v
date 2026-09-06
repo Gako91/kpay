@@ -44,7 +44,7 @@ pub fn (app &App) get_employee(mut ctx Context, id int) veb.Result {
 	return ctx.json(emp)
 }
 
-// POST /employees
+// create_employee POST /employees
 @['/employees'; post]
 pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -95,7 +95,7 @@ pub fn (app &App) get_contract(mut ctx Context, employee_id int) veb.Result {
 	return ctx.json(contract)
 }
 
-// GET /employees/:id/contracts - Historique des contrats d'un employé
+// get_employee_contracts GET /employees/:id/contracts - Historique des contrats d'un employé
 @['/employees/:id/contracts']
 pub fn (app &App) get_employee_contracts(mut ctx Context, id int) veb.Result {
 	dto.validate_id(id, 'employee_id') or {
@@ -110,7 +110,7 @@ pub fn (app &App) get_employee_contracts(mut ctx Context, id int) veb.Result {
 	return ctx.json(contracts)
 }
 
-// PUT /employees/:id - Mettre à jour un employé
+// update_employee PUT /employees/:id - Mettre à jour un employé
 @['/employees/:id'; put]
 pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -156,7 +156,7 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé mis à jour' })
 }
 
-// DELETE /employees/:id - Désactiver un employé (soft delete)
+// delete_employee DELETE /employees/:id - Désactiver un employé (soft delete)
 @['/employees/:id'; delete]
 pub fn (mut app App) delete_employee(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -179,7 +179,7 @@ pub fn (mut app App) delete_employee(mut ctx Context, id int) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé désactivé' })
 }
 
-// POST /contracts - Créer un contrat pour un employé
+// create_contract POST /contracts - Créer un contrat pour un employé
 @['/contracts'; post]
 pub fn (mut app App) create_contract(mut ctx Context) veb.Result {
 	body := ctx.req.data

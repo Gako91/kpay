@@ -9,11 +9,11 @@
 
 Avant de construire les fonctionnalités, sécuriser le socle.
 
-- [ ] **Migration au schéma multi-tenant complet**
-  - [ ] Ajouter `organization_id` sur toutes les tables métier (contract, payslip, leave_request, tax_rule, audit)
-  - [ ] Ajouter une clause `WHERE organization_id = <tenant courant>` sur 100 % des repository
-  - [ ] Restreindre le seed / les routes de gestion à l'organisation active
-  - [ ] Endpoint d'administration : création d'organisation + utilisateur admin dédié
+- [x] **Migration au schéma multi-tenant complet**
+  - [x] Ajouter `organization_id` sur toutes les tables métier (contract, payslip, leave_request, tax_rule, audit)
+  - [x] Ajouter une clause `WHERE organization_id = <tenant courant>` sur 100 % des repository
+  - [x] Restreindre le seed / les routes de gestion à l'organisation active
+  - [x] Endpoint d'administration : création d'organisation + utilisateur admin dédié
 - [ ] **Pipeline CI/CD renforcé**
   - [ ] Build Docker + push image (GHCR), job frontend (build prod) déjà présent
   - [ ] Tests backend automatisés dans la CI (déjà en place : core/common/services)

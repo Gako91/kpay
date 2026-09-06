@@ -52,24 +52,23 @@ pub fn (s &AuthService) login(username string, password string) !dto.LoginRespon
 	}
 }
 
-// register crée un nouveau compte utilisateur.
-pub fn (mut s AuthService) register(username string, password string, email string, role string, organization_id int) !int {
+// register crée un compte employee au sein de l'organisation 1.
+// L'onboarding d'un nouveau tenant passe par l'endpoint admin (création d'organisation + admin dédié).
+pub fn (mut s AuthService) register(username string, password string, email string) !int {
 	if s.jwt_secret.len == 0 {
 		return error('JWT secret non configuré')
 	}
-	effective_role := if role.len > 0 { role } else { 'employee' }
-	effective_org := if organization_id > 0 { organization_id } else { 1 }
 	user := models.User{
 		username: username
 		password_hash: common.hash_password(password)
-		role: effective_role
+		role: 'employee'
 		email: email
-		organization_id: effective_org
+		organization_id: 1
 		is_active: true
 		created_at: time.now()
 	}
 	inserted_id := s.repo.create_user(user)!
-	log_info('Utilisateur créé: ${username} (${effective_role}) org=${effective_org}')
+	log_info('Utilisateur créé: ${username} (employee) org=1')
 	return inserted_id
 }
 

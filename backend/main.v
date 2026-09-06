@@ -70,6 +70,7 @@ fn main() {
 		payroll_svc: services.new_payroll_service(mut repo)
 		storage_svc: storage_svc
 		auth_svc: services.new_auth_service(mut repo, config)
+		admin_svc: services.new_admin_service(mut repo)
 		audit_svc: audit_svc
 		mailer_svc: mailer_svc
 	}
@@ -87,7 +88,9 @@ fn main() {
 	services.log_info('')
 	services.log_info('Endpoints:')
 	services.log_info('  POST /auth/login - Connexion (JWT)')
-	services.log_info('  POST /auth/register - Création de compte')
+	services.log_info('  POST /auth/register - Création de compte employee (org 1)')
+	services.log_info('  POST /admin/organizations - Créer une organisation + admin (plateforme)')
+	services.log_info('  GET  /admin/organizations - Liste des organisations (plateforme)')
 	services.log_info('  GET  /           - Info API')
 	services.log_info('  GET  /health     - Health check')
 	services.log_info('  GET  /health/db  - Statut du pool DB (admin)')

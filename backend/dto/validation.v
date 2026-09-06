@@ -123,14 +123,25 @@ pub fn (r LoginRequest) validate() ! {
 	}
 }
 
-// validate vérifie les champs d'une requête d'enregistrement
+// validate vérifie les champs d'une requête d'enregistrement (compte employee publique)
 pub fn (r RegisterRequest) validate() ! {
 	validate_string_field(r.username, 'username', 3, 100)!
 	if r.password.len < 6 {
 		return error("Validation échouée : 'password' doit contenir au moins 6 caractères")
 	}
 	validate_email(r.email)!
-	if r.role.len > 0 && !['admin', 'payroll_officer', 'accountant', 'employee'].contains(r.role) {
-		return error("Validation échouée : 'role' invalide (admin|payroll_officer|accountant|employee)")
+}
+
+// validate vérifie les champs d'une requête de création d'organisation (plateforme)
+pub fn (r CreateOrganizationRequest) validate() ! {
+	validate_string_field(r.name, 'name', 2, 200)!
+	if r.admin_username.trim_space().len < 3 {
+		return error("Validation échouée : 'admin_username' doit contenir au moins 3 caractères")
+	}
+	if r.admin_password.len < 6 {
+		return error("Validation échouée : 'admin_password' doit contenir au moins 6 caractères")
+	}
+	if r.admin_email.trim_space().len > 0 {
+		validate_email(r.admin_email)!
 	}
 }

@@ -23,7 +23,7 @@ pub:
 	status string // 'approuve' | 'refuse'
 }
 
-// POST /leaves - Soumettre une demande de congé
+// create_leave POST /leaves - Soumettre une demande de congé
 @['/leaves'; post]
 pub fn (mut app App) create_leave(mut ctx Context) veb.Result {
 	body := ctx.req.data
@@ -66,7 +66,7 @@ pub fn (mut app App) create_leave(mut ctx Context) veb.Result {
 	})
 }
 
-// GET /leaves - Lister les demandes de congé (Admin / RH ou filtre par employé)
+// get_leaves GET /leaves - Lister les demandes de congé (Admin / RH ou filtre par employé)
 @['/leaves']
 pub fn (mut app App) get_leaves(mut ctx Context) veb.Result {
 	emp_id_str := ctx.query['employee_id']
@@ -92,7 +92,7 @@ pub fn (mut app App) get_leaves(mut ctx Context) veb.Result {
 	return ctx.json(requests)
 }
 
-// PUT /leaves/:id/status - Valider ou refuser une demande de congé (Admin / RH)
+// update_leave_status PUT /leaves/:id/status - Valider ou refuser une demande de congé (Admin / RH)
 @['/leaves/:id/status'; put]
 pub fn (mut app App) update_leave_status(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {

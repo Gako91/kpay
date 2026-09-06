@@ -6,7 +6,7 @@ import veb
 import dto
 import time
 
-// GET /employees/:id/timesheets?month=&year= - Récupérer le timesheet d'un employé pour une période
+// get_timesheet GET /employees/:id/timesheets?month=&year= - Récupérer le timesheet d'un employé pour une période
 @['/employees/:id/timesheets']
 pub fn (app &App) get_timesheet(mut ctx Context, id int) veb.Result {
 	dto.validate_id(id, 'employee_id') or {
@@ -23,7 +23,7 @@ pub fn (app &App) get_timesheet(mut ctx Context, id int) veb.Result {
 	return ctx.json(ts)
 }
 
-// POST /timesheets - Créer ou mettre à jour un timesheet
+// create_timesheet POST /timesheets - Créer ou mettre à jour un timesheet
 @['/timesheets'; post]
 pub fn (mut app App) create_timesheet(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -56,7 +56,7 @@ pub fn (mut app App) create_timesheet(mut ctx Context) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${new_id}', message: 'Timesheet enregistré' })
 }
 
-// PUT /timesheets/:id - Mettre à jour un timesheet
+// update_timesheet PUT /timesheets/:id - Mettre à jour un timesheet
 @['/timesheets/:id'; put]
 pub fn (mut app App) update_timesheet(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -88,7 +88,7 @@ pub fn (mut app App) update_timesheet(mut ctx Context, id int) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Timesheet mis à jour' })
 }
 
-// DELETE /timesheets/:id - Supprimer un timesheet
+// delete_timesheet DELETE /timesheets/:id - Supprimer un timesheet
 @['/timesheets/:id'; delete]
 pub fn (mut app App) delete_timesheet(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -108,7 +108,7 @@ pub fn (mut app App) delete_timesheet(mut ctx Context, id int) veb.Result {
 
 // ==================== ADJUSTMENTS ====================
 
-// GET /employees/:id/adjustments?month=&year= - Récupérer les primes/retenues d'un employé
+// get_adjustments GET /employees/:id/adjustments?month=&year= - Récupérer les primes/retenues d'un employé
 @['/employees/:id/adjustments']
 pub fn (app &App) get_adjustments(mut ctx Context, id int) veb.Result {
 	dto.validate_id(id, 'employee_id') or {
@@ -126,7 +126,7 @@ pub fn (app &App) get_adjustments(mut ctx Context, id int) veb.Result {
 	return ctx.json(adjustments)
 }
 
-// POST /adjustments - Créer un ajustement (prime/retenue)
+// create_adjustment POST /adjustments - Créer un ajustement (prime/retenue)
 @['/adjustments'; post]
 pub fn (mut app App) create_adjustment(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -160,7 +160,7 @@ pub fn (mut app App) create_adjustment(mut ctx Context) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${new_id}', message: 'Ajustement créé' })
 }
 
-// PUT /adjustments/:id - Mettre à jour un ajustement
+// update_adjustment PUT /adjustments/:id - Mettre à jour un ajustement
 @['/adjustments/:id'; put]
 pub fn (mut app App) update_adjustment(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -194,7 +194,7 @@ pub fn (mut app App) update_adjustment(mut ctx Context, id int) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Ajustement mis à jour' })
 }
 
-// DELETE /adjustments/:id - Supprimer un ajustement
+// delete_adjustment DELETE /adjustments/:id - Supprimer un ajustement
 @['/adjustments/:id'; delete]
 pub fn (mut app App) delete_adjustment(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {

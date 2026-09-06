@@ -7,14 +7,13 @@ pub mut:
 	password string
 }
 
-// RegisterRequest - Corps de la requête de création d'un utilisateur
+// RegisterRequest - Corps de la requête de création d'un compte employee
+// (le rôle et l'organisation sont forcés côté serveur : employee / org 1)
 pub struct RegisterRequest {
 pub mut:
-	username        string
-	password        string
-	email           string
-	role            string
-	organization_id int
+	username string
+	password string
+	email    string
 }
 
 // LoginResponse - Réponse de connexion avec token JWT

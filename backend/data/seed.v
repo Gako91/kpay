@@ -9,8 +9,24 @@ import time
 
 // Seed des données initiales via le Repository
 pub fn seed_data(mut repo repository.Repository) ! {
+	seed_platform_org(mut repo)!
 	seed_admin_user(mut repo)!
 	seed_cnps_rules(mut repo)!
+}
+
+// seed_platform_org garantit l'existence de l'organisation plateforme (id 1).
+// Les tenants créés via /admin/organizations reçoivent ensuite les ids suivants.
+fn seed_platform_org(mut repo repository.Repository) ! {
+	if repo.get_organization_by_id(1) != none {
+		return
+	}
+	repo.create_organization(models.Organization{
+		id: 1
+		name: 'KPay Platform'
+		tax_id: 'PLATFORM'
+		currency: 'XOF'
+	})!
+	services.log_info("Organisation plateforme 'KPay Platform' (org 1) créée")
 }
 
 // seed_admin_user crée un compte administrateur par défaut pour l'organisation 1

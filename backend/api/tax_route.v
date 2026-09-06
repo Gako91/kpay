@@ -5,7 +5,7 @@ import json2
 import veb
 import dto
 
-// GET /tax-rules?country=CI - Récupérer les règles fiscales
+// get_tax_rules GET /tax-rules?country=CI - Récupérer les règles fiscales
 @['/tax-rules']
 pub fn (app &App) get_tax_rules(mut ctx Context) veb.Result {
 	country := ctx.query['country'] or { '' }
@@ -17,7 +17,7 @@ pub fn (app &App) get_tax_rules(mut ctx Context) veb.Result {
 	return ctx.json(rules)
 }
 
-// POST /tax-rules - Créer une règle fiscale
+// create_tax_rule POST /tax-rules - Créer une règle fiscale
 @['/tax-rules'; post]
 pub fn (mut app App) create_tax_rule(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin', 'accountant']) {
@@ -45,7 +45,7 @@ pub fn (mut app App) create_tax_rule(mut ctx Context) veb.Result {
 	return ctx.json(dto.ApiResponse{ success: true, data: '${new_id}', message: 'Règle fiscale créée' })
 }
 
-// PUT /tax-rules/:id - Mettre à jour une règle fiscale
+// update_tax_rule PUT /tax-rules/:id - Mettre à jour une règle fiscale
 @['/tax-rules/:id'; put]
 pub fn (mut app App) update_tax_rule(mut ctx Context, id int) veb.Result {
 	if !ctx.has_role(['admin', 'accountant']) {

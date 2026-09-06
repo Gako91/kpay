@@ -26,6 +26,7 @@ pub mut:
 	payroll_svc  services.PayrollService // Service paie
 	storage_svc  services.StorageService // Service stockage MinIO / S3
 	auth_svc     services.AuthService // Service authentification
+	admin_svc    services.AdminService // Service administration plateforme (tenants)
 	audit_svc    services.AuditService // Service journal d'audit
 	mailer_svc   services.MailerService // Service d'envoi d'emails (SMTP)
 }
@@ -171,7 +172,7 @@ pub fn (app &App) index(mut ctx Context) veb.Result {
 	})
 }
 
-// GET /health
+// health GET /health
 @['/health']
 pub fn (app &App) health(mut ctx Context) veb.Result {
 	return ctx.text('OK')
@@ -185,7 +186,7 @@ pub fn (app &App) health_liveness(mut ctx Context) veb.Result {
 	})
 }
 
-// GET /health/readiness - Probe Kubernetes pour vérifier que la DB est connectée
+// health_readiness GET /health/readiness - Probe Kubernetes pour vérifier que la DB est connectée
 @['/health/readiness']
 pub fn (mut app App) health_readiness(mut ctx Context) veb.Result {
 	db_ok := app.repo.ping()
@@ -202,7 +203,7 @@ pub fn (mut app App) health_readiness(mut ctx Context) veb.Result {
 	})
 }
 
-// GET /metrics - Exposition des métriques de l'application au format Prometheus
+// metrics GET /metrics - Exposition des métriques de l'application au format Prometheus
 @['/metrics']
 pub fn (mut app App) metrics(mut ctx Context) veb.Result {
 	stats := app.repo.pool_stats()
@@ -234,7 +235,7 @@ pub fn (mut app App) metrics(mut ctx Context) veb.Result {
 	return ctx.text(body)
 }
 
-// GET /health/db - État du pool de connexions PostgreSQL (réservé admin)
+// health_db GET /health/db - État du pool de connexions PostgreSQL (réservé admin)
 @['/health/db']
 pub fn (mut app App) health_db(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin']) {
@@ -253,7 +254,7 @@ pub fn (mut app App) health_db(mut ctx Context) veb.Result {
 	return ctx.json(payload)
 }
 
-// GET /audit-logs - Journal d'audit paginé et filtrable (réservé admin)
+// get_audit_logs GET /audit-logs - Journal d'audit paginé et filtrable (réservé admin)
 @['/audit-logs']
 pub fn (app &App) get_audit_logs(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin']) {
@@ -287,7 +288,7 @@ pub fn (app &App) get_audit_logs(mut ctx Context) veb.Result {
 
 // ==================== AUTH ====================
 
-// POST /auth/login - Connexion et génération d'un token JWT
+// auth_login POST /auth/login - Connexion et génération d'un token JWT
 @['/auth/login'; post]
 pub fn (mut app App) auth_login(mut ctx Context) veb.Result {
 	body := ctx.req.data
@@ -309,7 +310,7 @@ pub fn (mut app App) auth_login(mut ctx Context) veb.Result {
 	return ctx.json(res)
 }
 
-// POST /auth/register - Création d'un compte utilisateur
+// auth_register POST /auth/register - Création d'un compte utilisateur
 @['/auth/register'; post]
 pub fn (mut app App) auth_register(mut ctx Context) veb.Result {
 	body := ctx.req.data
@@ -322,7 +323,7 @@ pub fn (mut app App) auth_register(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
-	id := app.auth_svc.register(req.username, req.password, req.email, req.role, req.organization_id) or {
+	id := app.auth_svc.register(req.username, req.password, req.email) or {
 		if err.msg().contains('existe déjà') {
 			app.audit_action(mut ctx, 'auth.register', 'user', 0, "Échec — nom '${req.username}' déjà pris")
 			ctx.res.set_status(.conflict)
@@ -331,27 +332,27 @@ pub fn (mut app App) auth_register(mut ctx Context) veb.Result {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
-	app.audit_action(mut ctx, 'auth.register', 'user', int(id), "Utilisateur '${req.username}' créé (${req.role})")
+	app.audit_action(mut ctx, 'auth.register', 'user', int(id), "Utilisateur '${req.username}' créé (employee, org 1)")
 	ctx.res.set_status(.created)
 	// services.log_info('Utilisateur ctx.re.data${ctx.req.data} ajouté')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Utilisateur créé' })
 }
 
-// GET /favicon.ico
+// favicon GET /favicon.ico
 @['/favicon.ico']
 pub fn (app &App) favicon(mut ctx Context) veb.Result {
 	ctx.res.set_status(.no_content)
 	return ctx.text('')
 }
 
-// GET /openapi.yaml - Spécification OpenAPI 3.0
+// openapi_spec GET /openapi.yaml - Spécification OpenAPI 3.0
 @['/openapi.yaml']
 pub fn (app &App) openapi_spec(mut ctx Context) veb.Result {
 	ctx.res.header.set(.content_type, 'application/yaml; charset=utf-8')
 	return ctx.text(openapi_yaml_spec)
 }
 
-// GET /docs - Interface Swagger UI interactive
+// swagger_docs GET /docs - Interface Swagger UI interactive
 @['/docs']
 pub fn (app &App) swagger_docs(mut ctx Context) veb.Result {
 	html := '<!DOCTYPE html>
