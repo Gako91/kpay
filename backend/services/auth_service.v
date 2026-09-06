@@ -68,6 +68,12 @@ pub fn (mut s AuthService) register(username string, password string, email stri
 		created_at: time.now()
 	}
 	inserted_id := s.repo.create_user(user)!
+	// Auto-lien ESS : si un dossier employé existe avec le même email dans l'org,
+	// on associe le compte pour permettre /me/payslips.
+	linked_emp := s.repo.link_employee_by_email(1, inserted_id, email) or { 0 }
+	if linked_emp > 0 {
+		log_info("Compte '${username}' lié au dossier employé ${linked_emp} (email concordant)")
+	}
 	log_info('Utilisateur créé: ${username} (employee) org=1')
 	return inserted_id
 }

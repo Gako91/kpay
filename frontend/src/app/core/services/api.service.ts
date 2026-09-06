@@ -69,6 +69,18 @@ export class ApiService {
         return this.http.get<Payslip[]>(`${this.baseUrl}/employees/${employeeId}/payslips`);
     }
 
+    // --- ESS : Mes bulletins (self-service) ---
+    getMyPayslips(month?: number, year?: number): Observable<Payslip[]> {
+        let params = new HttpParams();
+        if (month) params = params.set('month', month);
+        if (year) params = params.set('year', year);
+        return this.http.get<Payslip[]>(`${this.baseUrl}/me/payslips`, { params });
+    }
+
+    getMyPayslipPdf(payslipId: number): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/me/payslips/${payslipId}/pdf`, { responseType: 'blob' });
+    }
+
     // --- Leaves ---
     getLeaveRequests(): Observable<LeaveRequest[]> {
         return this.http.get<LeaveRequest[]>(`${this.baseUrl}/leaves`);

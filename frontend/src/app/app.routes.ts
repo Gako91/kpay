@@ -5,6 +5,7 @@ import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { EmployeesComponent } from './features/employees/employees.component';
 import { PayrollComponent } from './features/payroll/payroll.component';
 import { LeavesComponent } from './features/leaves/leaves.component';
+import { MyPayslipsComponent } from './features/my-payslips/my-payslips.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -18,7 +19,8 @@ export const routes: Routes = [
             { path: 'dashboard', component: DashboardComponent },
             { path: 'employees', component: EmployeesComponent },
             { path: 'payroll', component: PayrollComponent },
-            { path: 'leaves', component: LeavesComponent }
+            { path: 'leaves', component: LeavesComponent },
+            { path: 'my-payslips', component: MyPayslipsComponent }
         ]
     },
     { path: '**', redirectTo: 'login' }

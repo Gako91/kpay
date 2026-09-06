@@ -30,10 +30,10 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 
 ### 1.1 Portail Libre-Service Employé (ESS)
 
-- [ ] **Consultation des bulletins (self-service)**
-  - [ ] Endpoint `GET /me/payslips` : liste les bulletins de l'employé connecté uniquement
-  - [ ] Endpoint `GET /me/payslips/:id/pdf` : téléchargement sécurisé (JWT + propriétaire vérifié)
-  - [ ] Page frontend « Mes bulletins » avec filtre par mois/année
+- [x] **Consultation des bulletins (self-service)**
+  - [x] Endpoint `GET /me/payslips` : liste les bulletins de l'employé connecté uniquement
+  - [x] Endpoint `GET /me/payslips/:id/pdf` : téléchargement sécurisé (JWT + propriétaire vérifié)
+  - [x] Page frontend « Mes bulletins » avec filtre par mois/année
 - [ ] **Mise à jour des informations personnelles avec validation RH**
   - [ ] Endpoint `PUT /me/profile` : RIB, adresse, téléphone (changements mis en file d'attente)
   - [ ] Table `profile_change_request` (status : en_attente | approuve | refuse, dates de demande/validation)

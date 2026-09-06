@@ -33,6 +33,40 @@ pub fn (r &Repository) get_employee_by_id(emp_id int, org_id int) ?models.Employ
 	return result[0]
 }
 
+// get_employee_by_user_id retourne le dossier employé lié au compte utilisateur (ESS).
+pub fn (r &Repository) get_employee_by_user_id(user_id int, org_id int) ?models.Employee {
+	result := sql r.db {
+		select from models.Employee where user_id == user_id && organization_id == org_id limit 1
+	} or { return none }
+	if result.len == 0 {
+		return none
+	}
+	return result[0]
+}
+
+// link_employee_to_user associe un dossier employé à un compte utilisateur.
+pub fn (mut r Repository) link_employee_to_user(emp_id int, user_id int, org_id int) ! {
+	sql r.db {
+		update models.Employee set user_id = user_id where id == emp_id && organization_id == org_id
+	}!
+}
+
+// link_employee_by_email associe automatiquement un employé (même email, même org)
+// au compte utilisateur fraîchement créé. Retourne l'id employé si un lien a lieu.
+pub fn (mut r Repository) link_employee_by_email(org_id int, user_id int, email string) !int {
+	result := sql r.db {
+		select from models.Employee where email == email && organization_id == org_id limit 1
+	} or { return 0 }
+	if result.len == 0 {
+		return 0
+	}
+	emp := result[0]
+	sql r.db {
+		update models.Employee set user_id = user_id where id == emp.id && organization_id == org_id
+	}!
+	return emp.id
+}
+
 pub fn (r &Repository) get_employee_by_email(emp_email string, org_id int) bool {
 	result := sql r.db {
 		select from models.Employee where email == emp_email && organization_id == org_id limit 1

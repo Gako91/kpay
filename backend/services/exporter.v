@@ -469,10 +469,9 @@ pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, con
 	return filepath
 }
 
-// generate_and_store_payslip_pdf_minio génère le PDF, le sauvegarde dans MinIO et sur disque (cache)
-pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, storage &StorageService) !string {
-	object_key := 'bulletin_${p.id}.pdf'
-
+// generate_and_store_payslip_pdf_minio génère le PDF, le sauvegarde dans MinIO et sur disque (cache).
+// object_key doit être scopé par organisation (ex: 'org_2/bulletin_42.pdf') pour l'isolation des tenants.
+pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, object_key string, storage &StorageService) !string {
 	// Générer les octets du PDF
 	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total)!
 
@@ -482,8 +481,9 @@ pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employe
 		''
 	}
 
-	// Cache local optionnel
+	// Cache local optionnel (créé le sous-dossier org_<id> si besoin)
 	os.mkdir_all(pdf_dir) or {}
+	os.mkdir_all(os.dir('${pdf_dir}/${object_key}')) or {}
 	os.write_file_array('${pdf_dir}/${object_key}', pdf_bytes) or {}
 
 	if s3_key.len > 0 {
