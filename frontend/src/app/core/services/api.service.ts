@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Employee, Contract, Payslip, LeaveRequest, PayRun, ProfileChangeRequest } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -92,6 +92,49 @@ export class ApiService {
 
     setLeaveStatus(leaveId: number, status: 'approuve' | 'refuse'): Observable<{ success: boolean; message: string }> {
         return this.http.put<{ success: boolean; message: string }>(`${this.baseUrl}/leaves/${leaveId}/status`, { status });
+    }
+
+    // --- ESS : Mes congés & workflow 2 niveaux ---
+    getMyLeaveRequests(): Observable<LeaveRequest[]> {
+        return this.http.get<LeaveRequest[]>(`${this.baseUrl}/me/leaves`);
+    }
+
+    createMyLeaveRequest(request: Partial<LeaveRequest>): Observable<LeaveRequest> {
+        return this.http.post<LeaveRequest>(`${this.baseUrl}/me/leaves`, request);
+    }
+
+    getMyLeaveBalance(year?: number): Observable<LeaveBalance[]> {
+        let params = new HttpParams();
+        if (year) params = params.set('year', year);
+        return this.http.get<LeaveBalance[]>(`${this.baseUrl}/me/leave-balance`, { params });
+    }
+
+    getTeamLeaveRequests(): Observable<LeaveRequest[]> {
+        return this.http.get<LeaveRequest[]>(`${this.baseUrl}/leaves?my_team=1`);
+    }
+
+    mgrApproveLeave(leaveId: number): Observable<LeaveRequest> {
+        return this.http.post<LeaveRequest>(`${this.baseUrl}/leaves/${leaveId}/mgr-approve`, {});
+    }
+
+    mgrRejectLeave(leaveId: number, reason: string): Observable<LeaveRequest> {
+        return this.http.post<LeaveRequest>(`${this.baseUrl}/leaves/${leaveId}/mgr-reject`, { reason });
+    }
+
+    rhApproveLeave(leaveId: number): Observable<LeaveRequest> {
+        return this.http.post<LeaveRequest>(`${this.baseUrl}/leaves/${leaveId}/rh-approve`, {});
+    }
+
+    rhRejectLeave(leaveId: number, reason: string): Observable<LeaveRequest> {
+        return this.http.post<LeaveRequest>(`${this.baseUrl}/leaves/${leaveId}/rh-reject`, { reason });
+    }
+
+    uploadLeaveJustificatif(leaveId: number, base64Content: string, filename: string): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/leaves/${leaveId}/justificatif`, { content: base64Content, filename });
+    }
+
+    downloadLeaveJustificatif(leaveId: number): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/leaves/${leaveId}/justificatif`, { responseType: 'blob' });
     }
 
     // --- ESS : Profil & validation RH ---

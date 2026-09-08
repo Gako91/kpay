@@ -27,6 +27,7 @@ pub mut:
 	audit_svc    services.AuditService // Service journal d'audit
 	mailer_svc   services.MailerService // Service d'envoi d'emails (SMTP)
 	profile_svc  services.ProfileService // Service profils employés (workflow validation RH)
+	leave_svc    services.LeaveService // Service congés (workflow N+1 → RH, soldes)
 }
 
 // Contexte par requête

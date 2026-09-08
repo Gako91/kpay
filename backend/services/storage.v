@@ -92,8 +92,7 @@ fn (s &StorageService) sign_presigned_url(method string, object_name string, exp
 		'&X-Amz-Credential=${percent_encode(credential)}' +
 		'&X-Amz-Date=${amz_date}' +
 		'&X-Amz-Expires=${expires}' +
-		'&X-Amz-SignedHeaders=host' +
-		'&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD'
+		'&X-Amz-SignedHeaders=host'
 
 	canonical_request := '${method}\n${canonical_uri}\n${query}\nhost:${host}\n\nhost\nUNSIGNED-PAYLOAD'
 

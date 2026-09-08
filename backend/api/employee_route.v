@@ -66,6 +66,15 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
+	// Le manager (N+1) doit exister dans la même organisation
+	manager_id := decoded.manager_id or { 0 }
+	if manager_id > 0 {
+		app.repo.get_employee_by_id(manager_id, ctx.user_org) or {
+			ctx.res.set_status(.bad_request)
+			return ctx.json(dto.error_response("Manager introuvable dans l'organisation (id: ${manager_id})"))
+		}
+	}
+
 	new_id := app.employee_svc.create(emp) or {
 		// Unicité email et autres erreurs remontées par le service
 		if err.msg().contains('existe déjà') {
@@ -152,6 +161,24 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
+
+	// Rattachement du N+1 (manager) — validé dans la même organisation, jamais soi-même
+	manager_id := decoded.manager_id or { 0 }
+	if manager_id == id {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('Un employé ne peut pas être son propre manager'))
+	}
+	if manager_id > 0 {
+		app.repo.get_employee_by_id(manager_id, ctx.user_org) or {
+			ctx.res.set_status(.bad_request)
+			return ctx.json(dto.error_response("Manager introuvable dans l'organisation (id: ${manager_id})"))
+		}
+	}
+	app.repo.set_employee_manager(id, ctx.user_org, manager_id) or {
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response('Erreur mise à jour du manager: ${err}'))
+	}
+
 	app.audit_action(mut ctx, 'employee.update', 'employee', id, 'Mise à jour de ${emp.first_name} ${emp.last_name}')
 	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Employé mis à jour' })
 }

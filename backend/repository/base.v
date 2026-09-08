@@ -55,6 +55,7 @@ fn (mut r Repository) init_tables() ! {
 		create table models.AuditLog
 		create table models.LeaveRequest
 		create table models.Organization
+		create table models.LeaveBalance
 	}!
 
 	// Auto-migrations pour faire évoluer le schéma PostgreSQL existant
@@ -74,6 +75,13 @@ fn (mut r Repository) init_tables() ! {
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS address TEXT DEFAULT '';") or {}
 	r.db.exec("ALTER TABLE employee ADD COLUMN IF NOT EXISTS user_id INT;") or {}
 	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS tax_parts REAL DEFAULT 1.0;') or {}
+	// Pilier 1.2 — hiérarchie manager + workflow congés 2 niveaux + justificatif
+	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS manager_id INT;') or {}
+	r.db.exec("ALTER TABLE leaverequest ADD COLUMN IF NOT EXISTS rejection_reason TEXT DEFAULT '';") or {}
+	r.db.exec("ALTER TABLE leaverequest ADD COLUMN IF NOT EXISTS approved_by_mgr TEXT DEFAULT '';") or {}
+	r.db.exec('ALTER TABLE leaverequest ADD COLUMN IF NOT EXISTS approved_at_mgr TIMESTAMP;') or {}
+	r.db.exec('ALTER TABLE leaverequest ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;') or {}
+	r.db.exec("ALTER TABLE leaverequest ADD COLUMN IF NOT EXISTS justificatif_path TEXT DEFAULT '';") or {}
 	r.db.exec('ALTER TABLE taxrule ADD COLUMN IF NOT EXISTS ceiling BIGINT DEFAULT 0;') or {}
 	r.db.exec('ALTER TABLE taxrule ADD COLUMN IF NOT EXISTS fixed_amount BIGINT DEFAULT 0;') or {}
 	// Workflow d'approbation des bulletins

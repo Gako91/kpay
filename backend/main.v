@@ -74,8 +74,10 @@ fn main() {
 		audit_svc: audit_svc
 		mailer_svc: mailer_svc
 		profile_svc: services.new_profile_service(mut repo)
+		leave_svc: services.new_leave_service(mut repo)
 	}
 	app.payroll_svc.set_mailer(mailer_svc)
+	app.leave_svc.set_mailer(mailer_svc)
 
 	// Enregistrement du middleware de logging de requêtes puis d'authentification
 	app.use(handler: app.request_logger)
@@ -125,6 +127,12 @@ fn main() {
 	services.log_info('  GET  /profile-changes     - Demandes de modification (RH, &status=)')
 	services.log_info('  POST /profile-changes/:id/approve - Valider et appliquer (RH)')
 	services.log_info('  POST /profile-changes/:id/reject  - Refuser avec motif (RH)')
+	services.log_info('  GET/POST /me/leaves          - Demandes de congé de l\'employé connecté (workflow N+1 → RH)')
+	services.log_info('  GET  /me/leave-balance       - Soldes annuels de congés (cumul + prorata, ?year=)')
+	services.log_info('  GET  /leaves?my_team=1       - Demandes des collaborateurs (manager)')
+	services.log_info('  POST /leaves/:id/mgr-approve|mgr-reject - Validation N+1 (motif au refus)')
+	services.log_info('  POST /leaves/:id/rh-approve|rh-reject   - Validation RH (motif au refus, débit du solde)')
+	services.log_info('  GET|POST /leaves/:id/justificatif       - Justificatif PDF (congé maladie)')
 
 	veb.run[api.App, api.Context](mut app, config.port)
 }

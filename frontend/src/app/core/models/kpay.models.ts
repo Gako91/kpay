@@ -21,6 +21,7 @@ export interface Employee {
     tax_parts: number;
     is_active: boolean;
     user_id?: number;
+    manager_id?: number;
 }
 
 export interface ProfileChangeRequest {
@@ -73,9 +74,24 @@ export interface LeaveRequest {
     end_date: string;
     days_count: number;
     reason: string;
-    status: 'en_attente' | 'approuve' | 'refuse';
+    status: 'en_attente' | 'valide_mgr' | 'approuve' | 'refuse';
+    approved_by_mgr?: string;
+    approved_at_mgr?: string;
     approved_by?: string;
+    approved_at?: string;
+    rejection_reason?: string;
+    justificatif_path?: string;
     created_at?: string;
+}
+
+export interface LeaveBalance {
+    id: number;
+    organization_id: number;
+    employee_id: number;
+    year: number;
+    leave_type: 'conge_paye' | 'rtt' | 'maladie' | 'sans_solde';
+    accrued_days: number;
+    used_days: number;
 }
 
 export interface PayRun {

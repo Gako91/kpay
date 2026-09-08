@@ -100,6 +100,18 @@ pub fn (mut r Repository) delete_employee(emp_id int, org_id int) ! {
 	}!
 }
 
+// set_employee_manager rattache un employé à son N+1 (même organisation).
+// manager_id = 0 efface la relation (le workflow bascule alors en décision RH directe).
+pub fn (mut r Repository) set_employee_manager(emp_id int, org_id int, manager_id int) ! {
+	r.db.exec_param_many('UPDATE employee SET manager_id = NULLIF(\$3, 0) WHERE id = \$1 AND organization_id = \$2', [
+		emp_id.str(),
+		org_id.str(),
+		manager_id.str(),
+	]) or {
+		return error("Échec de la mise à jour du manager: ${err}")
+	}
+}
+
 // update_employee_field met à jour un champ du dossier employé après validation RH.
 // column_name provient d'une liste blanche définie en code (services/profile_service.v) —
 // la valeur est passée en paramètre PostgreSQL. Réservé aux colonnes texte.
