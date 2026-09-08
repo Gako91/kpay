@@ -267,7 +267,7 @@ import { TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, TaxLine 
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1">Date d'effet (vide = toujours)</label>
+<label class="block text-xs font-medium text-slate-700 mb-1">Date d'effet (vide = aujourd'hui en création, toujours en édition)</label>
                   <input type="date" [(ngModel)]="formComponent.effective_from" name="eff" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"/>
                 </div>
                 <div>
