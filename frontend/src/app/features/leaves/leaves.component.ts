@@ -10,30 +10,30 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
     imports: [FormsModule],
     template: `
     <div class="space-y-6">
-      <div class="flex items-center justify-between">
+      <div class="page-head">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Congés & Absences</h1>
-          <p class="text-slate-500 text-sm">Workflow à 2 niveaux (N+1 → RH), soldes annuels et congé maladie avec justificatif.</p>
+          <h1 class="page-title">Congés & Absences</h1>
+          <p class="page-subtitle">Workflow à 2 niveaux (N+1 → RH), soldes annuels et congé maladie avec justificatif.</p>
         </div>
-        <button (click)="showModal.set(true)" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition shadow">
+        <button (click)="showModal.set(true)" class="btn btn-primary">
           + Nouvelle Demande
         </button>
       </div>
 
       @if (errorMessage()) {
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg text-sm">{{ errorMessage() }}</div>
+        <div class="alert alert-error">{{ errorMessage() }}</div>
       }
       @if (successMessage()) {
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">{{ successMessage() }}</div>
+        <div class="alert alert-success">{{ successMessage() }}</div>
       }
 
       <!-- Soldes annuels -->
       @if (me()) {
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           @for (b of balances(); track b.leave_type) {
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-              <div class="text-xs font-semibold text-slate-500 uppercase">{{ leaveTypeLabel(b.leave_type) }}</div>
-              <div class="mt-2 text-lg font-bold text-slate-800">{{ balanceRemain(b) }} j</div>
+            <div class="kpi-card">
+              <div class="kpi-label uppercase">{{ leaveTypeLabel(b.leave_type) }}</div>
+              <div class="kpi-value">{{ balanceRemain(b) }} j</div>
               <div class="text-xs text-slate-400 mt-1">Acquis {{ b.accrued_days }} · Pris {{ b.used_days }}</div>
             </div>
           }
@@ -44,17 +44,17 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
       @if (me() || canManage()) {
         <div class="flex gap-2">
           @if (me()) {
-            <button (click)="tab.set('mes')" class="px-4 py-2 text-sm font-medium rounded-lg transition" [class]="tab() === 'mes' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'">
+            <button (click)="tab.set('mes')" class="chip" [class]="tab() === 'mes' ? 'chip-active' : 'chip-idle'">
               Mes demandes
             </button>
           }
           @if (me()) {
-            <button (click)="tab.set('equipe')" class="px-4 py-2 text-sm font-medium rounded-lg transition" [class]="tab() === 'equipe' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'">
+            <button (click)="tab.set('equipe')" class="chip" [class]="tab() === 'equipe' ? 'chip-active' : 'chip-idle'">
               Mon équipe
             </button>
           }
           @if (canManage()) {
-            <button (click)="tab.set('toutes')" class="px-4 py-2 text-sm font-medium rounded-lg transition" [class]="tab() === 'toutes' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'">
+            <button (click)="tab.set('toutes')" class="chip" [class]="tab() === 'toutes' ? 'chip-active' : 'chip-idle'">
               Toutes les demandes
             </button>
           }
@@ -62,38 +62,38 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
       }
 
       <!-- Liste des demandes -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-sm text-slate-600">
-          <thead class="bg-slate-50 text-slate-700 uppercase font-semibold text-xs border-b border-slate-200">
+      <div class="card overflow-hidden">
+        <table class="data-table">
+          <thead>
             <tr>
-              <th class="px-6 py-3.5">ID</th>
-              <th class="px-6 py-3.5">Employé</th>
-              <th class="px-6 py-3.5">Type</th>
-              <th class="px-6 py-3.5">Période</th>
-              <th class="px-6 py-3.5 text-right">Jours</th>
-              <th class="px-6 py-3.5">Statut</th>
-              <th class="px-6 py-3.5">Motif / Refus</th>
-              <th class="px-6 py-3.5">Justificatif</th>
-              <th class="px-6 py-3.5 text-right">Actions</th>
+              <th>ID</th>
+              <th>Employé</th>
+              <th>Type</th>
+              <th>Période</th>
+              <th class="text-right">Jours</th>
+              <th>Statut</th>
+              <th>Motif / Refus</th>
+              <th>Justificatif</th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y border-slate-100">
+          <tbody>
             @for (r of visibleLeaves(); track r.id) {
-              <tr class="hover:bg-slate-50 transition">
-                <td class="px-6 py-4 font-mono text-xs text-slate-400">#{{ r.id }}</td>
-                <td class="px-6 py-4 font-medium text-slate-900">{{ employeeName(r.employee_id) }}</td>
-                <td class="px-6 py-4">{{ leaveTypeLabel(r.leave_type) }}</td>
-                <td class="px-6 py-4">{{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }}</td>
-                <td class="px-6 py-4 text-right">{{ r.days_count }}</td>
-                <td class="px-6 py-4">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" [class]="statusClass(r.status)">
+              <tr>
+                <td class="px-4 py-3.5 font-mono text-xs text-slate-400">#{{ r.id }}</td>
+                <td class="px-4 py-3.5 font-medium text-slate-900">{{ employeeName(r.employee_id) }}</td>
+                <td class="px-4 py-3.5">{{ leaveTypeLabel(r.leave_type) }}</td>
+                <td class="px-4 py-3.5 whitespace-nowrap">{{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }}</td>
+                <td class="px-4 py-3.5 num">{{ r.days_count }}</td>
+                <td class="px-4 py-3.5">
+                  <span [class]="statusClass(r.status)">
                     {{ statusLabel(r.status) }}
                   </span>
                 </td>
-                <td class="px-6 py-4 text-slate-500 max-w-[14rem] truncate" [title]="r.rejection_reason || r.reason">
+                <td class="px-4 py-3.5 text-slate-500 max-w-[14rem] truncate" [title]="r.rejection_reason || r.reason">
                   {{ r.rejection_reason || r.reason || '—' }}
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-4 py-3.5">
                   @if (r.leave_type === 'maladie') {
                     @if (r.justificatif_path) {
                       <button (click)="downloadJustificatif(r.id)" class="text-xs font-medium text-blue-600 hover:underline">Voir PDF</button>
@@ -107,18 +107,18 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
                     <span class="text-xs text-slate-300">—</span>
                   }
                 </td>
-                <td class="px-6 py-4">
-                  <div class="flex gap-2 justify-end">
+                <td class="px-4 py-3.5">
+                  <div class="flex gap-1.5 justify-end">
                     @if (r.status === 'en_attente' && canDecide(r, 'mgr')) {
-                      <button (click)="mgrDecision(r.id, 'approve')" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">Valider N+1</button>
-                      <button (click)="mgrDecision(r.id, 'reject')" class="px-3 py-1.5 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded-lg">Refuser</button>
+                      <button (click)="mgrDecision(r.id, 'approve')" class="btn btn-sm btn-secondary">Valider N+1</button>
+                      <button (click)="mgrDecision(r.id, 'reject')" class="btn btn-sm btn-danger">Refuser</button>
                     }
                     @if (r.status === 'valide_mgr' && canManage()) {
-                      <button (click)="rhDecision(r.id, 'approve')" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">Approuver (RH)</button>
-                      <button (click)="rhDecision(r.id, 'reject')" class="px-3 py-1.5 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded-lg">Refuser (RH)</button>
+                      <button (click)="rhDecision(r.id, 'approve')" class="btn btn-sm btn-secondary">Approuver (RH)</button>
+                      <button (click)="rhDecision(r.id, 'reject')" class="btn btn-sm btn-danger">Refuser (RH)</button>
                     }
                     @if (canManage() && r.status === 'en_attente') {
-                      <button (click)="rhDecision(r.id, 'approve')" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg" title="Décision RH directe (sans N+1)">Décider RH</button>
+                      <button (click)="rhDecision(r.id, 'approve')" class="btn btn-sm btn-secondary" title="Décision RH directe (sans N+1)">Décider RH</button>
                     }
                     @if (r.status === 'approuve' || r.status === 'refuse') {
                       <span class="text-xs text-slate-400">{{ r.status === 'approuve' ? (r.approved_by || '') : (r.approved_by_mgr || r.approved_by || '') }}</span>
@@ -128,7 +128,7 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
               </tr>
             } @empty {
               <tr>
-                <td colspan="9" class="px-6 py-8 text-center text-slate-400">
+                <td colspan="9" class="px-4 py-8 text-center text-slate-400">
                   Aucune demande de congé.
                 </td>
               </tr>
@@ -139,14 +139,14 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
 
       <!-- Modale de création -->
       @if (showModal()) {
-        <div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
-            <h2 class="text-xl font-bold text-slate-800">Nouvelle Demande de Congé</h2>
+        <div class="modal-overlay">
+          <div class="modal">
+            <h2 class="text-lg font-semibold text-slate-900 tracking-tight">Nouvelle Demande de Congé</h2>
             <form (ngSubmit)="createLeave()" class="space-y-4">
               @if (canManage()) {
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1">Employé</label>
-                  <select [(ngModel)]="newLeave.employee_id" name="employee" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
+                  <label class="label">Employé</label>
+                  <select [(ngModel)]="newLeave.employee_id" name="employee" required class="select">
                     <option [ngValue]="null" disabled>— Sélectionner —</option>
                     @for (e of employeeList(); track e.id) {
                       <option [ngValue]="e.id">{{ e.last_name }} {{ e.first_name }}</option>
@@ -159,8 +159,8 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
                 </div>
               }
               <div>
-                <label class="block text-xs font-medium text-slate-700 mb-1">Type de congé</label>
-                <select [(ngModel)]="newLeave.leave_type" name="leaveType" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
+                <label class="label">Type de congé</label>
+                <select [(ngModel)]="newLeave.leave_type" name="leaveType" required class="select">
                   <option value="conge_paye">Congé payé</option>
                   <option value="rtt">RTT</option>
                   <option value="maladie">Maladie</option>
@@ -169,27 +169,27 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1">Date de début</label>
-                  <input type="date" [(ngModel)]="newLeave.start_date" name="startDate" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"/>
+                  <label class="label">Date de début</label>
+                  <input type="date" [(ngModel)]="newLeave.start_date" name="startDate" required class="input"/>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1">Date de fin</label>
-                  <input type="date" [(ngModel)]="newLeave.end_date" name="endDate" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"/>
+                  <label class="label">Date de fin</label>
+                  <input type="date" [(ngModel)]="newLeave.end_date" name="endDate" required class="input"/>
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1">Nombre de jours</label>
-                  <input type="number" step="0.5" min="0.5" [(ngModel)]="newLeave.days_count" name="days" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"/>
+                  <label class="label">Nombre de jours</label>
+                  <input type="number" step="0.5" min="0.5" [(ngModel)]="newLeave.days_count" name="days" required class="input"/>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1">Motif</label>
-                  <input type="text" [(ngModel)]="newLeave.reason" name="reason" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"/>
+                  <label class="label">Motif</label>
+                  <input type="text" [(ngModel)]="newLeave.reason" name="reason" class="input"/>
                 </div>
               </div>
               <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" (click)="showModal.set(false)" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Annuler</button>
-                <button type="submit" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Soumettre</button>
+                <button type="button" (click)="showModal.set(false)" class="btn btn-secondary">Annuler</button>
+                <button type="submit" class="btn btn-primary">Soumettre</button>
               </div>
             </form>
           </div>
@@ -443,12 +443,12 @@ export class LeavesComponent implements OnInit {
 
     statusClass(status: string): string {
         const classes: Record<string, string> = {
-            en_attente: 'bg-amber-100 text-amber-800',
-            valide_mgr: 'bg-sky-100 text-sky-800',
-            approuve: 'bg-emerald-100 text-emerald-800',
-            refuse: 'bg-rose-100 text-rose-800'
+            en_attente: 'badge badge-amber',
+            valide_mgr: 'badge badge-blue',
+            approuve: 'badge badge-emerald',
+            refuse: 'badge badge-rose'
         };
-        return classes[status] || 'bg-slate-100 text-slate-800';
+        return classes[status] || 'badge badge-slate';
     }
 
     private extractError(err: any): string {

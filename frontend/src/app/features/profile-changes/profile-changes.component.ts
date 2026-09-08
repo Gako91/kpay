@@ -11,45 +11,45 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
     template: `
     <div class="space-y-6">
       <!-- En-tete -->
-      <div class="flex items-center justify-between">
+      <div class="page-head">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Validation RH — Modifications de profil</h1>
-          <p class="text-slate-500 text-sm">Les modifications ne sont appliquées au dossier employé qu'après validation.</p>
+          <h1 class="page-title">Validation RH — Modifications de profil</h1>
+          <p class="page-subtitle">Les modifications ne sont appliquées au dossier employé qu'après validation.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button (click)="filterStatus('')" [class]="statusFilter() === '' ? activeFilter : inactiveFilter">Toutes</button>
-          <button (click)="filterStatus('en_attente')" [class]="statusFilter() === 'en_attente' ? activeFilter : inactiveFilter">En attente</button>
+          <button (click)="filterStatus('')" class="chip" [class]="statusFilter() === '' ? 'chip-active' : 'chip-idle'">Toutes</button>
+          <button (click)="filterStatus('en_attente')" class="chip" [class]="statusFilter() === 'en_attente' ? 'chip-active' : 'chip-idle'">En attente</button>
         </div>
       </div>
 
       @if (errorMessage()) {
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg text-sm">{{ errorMessage() }}</div>
+        <div class="alert alert-error">{{ errorMessage() }}</div>
       }
       @if (infoMessage()) {
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">{{ infoMessage() }}</div>
+        <div class="alert alert-success">{{ infoMessage() }}</div>
       }
 
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="card overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm text-slate-600">
-            <thead class="bg-slate-50 text-slate-700 uppercase font-semibold text-xs border-b border-slate-200">
+          <table class="data-table">
+            <thead>
               <tr>
-                <th class="px-6 py-3.5">Demande</th>
-                <th class="px-6 py-3.5">Employé</th>
-                <th class="px-6 py-3.5">Champ</th>
-                <th class="px-6 py-3.5">Actuel → Demandé</th>
-                <th class="px-6 py-3.5">Statut</th>
-                <th class="px-6 py-3.5 text-right">Action</th>
+                <th>Demande</th>
+                <th>Employé</th>
+                <th>Champ</th>
+                <th>Actuel → Demandé</th>
+                <th>Statut</th>
+                <th class="text-right">Action</th>
               </tr>
             </thead>
-            <tbody class="divide-y border-slate-100">
+            <tbody>
               @for (req of requests(); track req.id) {
-                <tr class="hover:bg-slate-50 transition align-top">
-                  <td class="px-6 py-4">
+                <tr class="align-top">
+                  <td class="px-4 py-3.5">
                     <p class="font-medium text-slate-800">#{{ req.id }}</p>
                     <p class="text-xs text-slate-400">{{ formatDate(req.requested_at) }}</p>
                   </td>
-                  <td class="px-6 py-4">
+                  <td class="px-4 py-3.5">
                     @if (employeeMap()[req.employee_id]) {
                       <span class="font-medium text-slate-800">{{ employeeMap()[req.employee_id].first_name }} {{ employeeMap()[req.employee_id].last_name }}</span>
                       <p class="text-xs text-slate-400">{{ employeeMap()[req.employee_id].email }}</p>
@@ -57,13 +57,13 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
                       <span>Employé #{{ req.employee_id }}</span>
                     }
                   </td>
-                  <td class="px-6 py-4">{{ fieldLabel(req.field_name) }}</td>
-                  <td class="px-6 py-4">
+                  <td class="px-4 py-3.5">{{ fieldLabel(req.field_name) }}</td>
+                  <td class="px-4 py-3.5">
                     <span class="line-through text-slate-400">{{ req.old_value || '—' }}</span>
                     <span class="mx-1 text-slate-300">→</span>
-                    <span class="font-semibold text-emerald-700">{{ req.new_value }}</span>
+                    <span class="font-medium text-slate-900">{{ req.new_value }}</span>
                   </td>
-                  <td class="px-6 py-4">
+                  <td class="px-4 py-3.5">
                     <span [class]="statusBadge(req.status)">{{ statusLabel(req.status) }}</span>
                     @if (req.status === 'refuse' && req.rejection_reason) {
                       <p class="text-xs text-rose-600 mt-1">Motif : {{ req.rejection_reason }}</p>
@@ -72,14 +72,12 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
                       <p class="text-xs text-slate-400 mt-1">par {{ req.reviewed_by }}</p>
                     }
                   </td>
-                  <td class="px-6 py-4 text-right whitespace-nowrap">
+                  <td class="px-4 py-3.5 text-right whitespace-nowrap">
                     @if (req.status === 'en_attente') {
-                      <button (click)="approve(req.id)" [disabled]="busy() === req.id"
-                              class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg transition disabled:opacity-50 mr-2">
+                      <button (click)="approve(req.id)" [disabled]="busy() === req.id" class="btn btn-sm btn-secondary mr-2 disabled:opacity-50">
                         Valider
                       </button>
-                      <button (click)="reject(req.id)" [disabled]="busy() === req.id"
-                              class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg transition disabled:opacity-50">
+                      <button (click)="reject(req.id)" [disabled]="busy() === req.id" class="btn btn-sm btn-danger disabled:opacity-50">
                         Refuser
                       </button>
                     } @else {
@@ -88,7 +86,7 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
                   </td>
                 </tr>
               } @empty {
-                <tr><td colspan="6" class="px-6 py-8 text-center text-slate-400">Aucune demande de modification.</td></tr>
+                <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Aucune demande de modification.</td></tr>
               }
             </tbody>
           </table>
@@ -107,9 +105,6 @@ export class ProfileChangesComponent implements OnInit {
     infoMessage = signal('');
     busy = signal<number | null>(null);
     rejectReason = '';
-
-    activeFilter = 'px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg';
-    inactiveFilter = 'px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg';
 
     ngOnInit(): void {
         this.loadEmployees();
@@ -188,13 +183,12 @@ export class ProfileChangesComponent implements OnInit {
     }
 
     statusBadge(s: string): string {
-        const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium';
         const map: Record<string, string> = {
-            en_attente: 'bg-amber-100 text-amber-800',
-            approuve: 'bg-emerald-100 text-emerald-800',
-            refuse: 'bg-rose-100 text-rose-700'
+            en_attente: 'badge badge-amber',
+            approuve: 'badge badge-emerald',
+            refuse: 'badge badge-rose'
         };
-        return `${base} ${map[s] || 'bg-slate-100 text-slate-700'}`;
+        return map[s] || 'badge badge-slate';
     }
 
     formatDate(d: string): string {

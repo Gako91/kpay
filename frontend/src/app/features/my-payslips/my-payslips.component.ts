@@ -11,29 +11,29 @@ import { Payslip } from '../../core/models/kpay.models';
     template: `
     <div class="space-y-6">
       <!-- En-tete -->
-      <div class="flex items-center justify-between">
+      <div class="page-head">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Mes bulletins de paie</h1>
-          <p class="text-slate-500 text-sm">Consultez et téléchargez vos bulletins de salaire.</p>
+          <h1 class="page-title">Mes bulletins de paie</h1>
+          <p class="page-subtitle">Consultez et téléchargez vos bulletins de salaire.</p>
         </div>
       </div>
 
       @if (errorMessage()) {
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg text-sm">
+        <div class="alert alert-error">
           {{ errorMessage() }}
         </div>
       }
       @if (infoMessage()) {
-        <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+        <div class="alert alert-info">
           {{ infoMessage() }}
         </div>
       }
 
       <!-- Filtres -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-end gap-3">
+      <div class="card p-4 flex flex-wrap items-end gap-3">
         <div>
-          <label class="block text-xs font-medium text-slate-500 mb-1">Mois</label>
-          <select [(ngModel)]="selectedMonth" class="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
+          <label class="label">Mois</label>
+          <select [(ngModel)]="selectedMonth" class="select w-auto">
             <option [ngValue]="0">Tous les mois</option>
             @for (m of months; track m.value) {
               <option [ngValue]="m.value">{{ m.label }}</option>
@@ -41,47 +41,47 @@ import { Payslip } from '../../core/models/kpay.models';
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-500 mb-1">Année</label>
-          <select [(ngModel)]="selectedYear" class="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
+          <label class="label">Année</label>
+          <select [(ngModel)]="selectedYear" class="select w-auto">
             <option [ngValue]="0">Toutes les années</option>
             @for (y of years; track y) {
               <option [ngValue]="y">{{ y }}</option>
             }
           </select>
         </div>
-        <button (click)="loadPayslips()" class="px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+        <button (click)="loadPayslips()" class="btn btn-primary">
           Filtrer
         </button>
       </div>
 
       <!-- Tableau -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-sm text-slate-600">
-          <thead class="bg-slate-50 text-slate-700 uppercase font-semibold text-xs border-b border-slate-200">
+      <div class="card overflow-hidden">
+        <table class="data-table">
+          <thead>
             <tr>
-              <th class="px-6 py-3.5">Période</th>
-              <th class="px-6 py-3.5 text-right">Brut</th>
-              <th class="px-6 py-3.5 text-right">Cotisations</th>
-              <th class="px-6 py-3.5 text-right">Net à payer</th>
-              <th class="px-6 py-3.5">Statut</th>
-              <th class="px-6 py-3.5 text-right">Action</th>
+              <th>Période</th>
+              <th class="text-right">Brut</th>
+              <th class="text-right">Cotisations</th>
+              <th class="text-right">Net à payer</th>
+              <th>Statut</th>
+              <th class="text-right">Action</th>
             </tr>
           </thead>
-          <tbody class="divide-y border-slate-100">
+          <tbody>
             @for (p of payslips(); track p.id) {
-              <tr class="hover:bg-slate-50 transition">
-                <td class="px-6 py-4 font-medium text-slate-800">{{ formatPeriod(p) }}</td>
-                <td class="px-6 py-4 text-right">{{ formatAmount(p.gross_amount) }}</td>
-                <td class="px-6 py-4 text-right">{{ formatAmount(p.total_taxes) }}</td>
-                <td class="px-6 py-4 text-right font-semibold text-emerald-700">{{ formatAmount(p.net_amount) }}</td>
-                <td class="px-6 py-4">
+              <tr>
+                <td class="px-4 py-3.5 font-medium text-slate-800">{{ formatPeriod(p) }}</td>
+                <td class="px-4 py-3.5 num">{{ formatAmount(p.gross_amount) }}</td>
+                <td class="px-4 py-3.5 num">{{ formatAmount(p.total_taxes) }}</td>
+                <td class="px-4 py-3.5 num font-semibold text-emerald-700">{{ formatAmount(p.net_amount) }}</td>
+                <td class="px-4 py-3.5">
                   <span [class]="statusBadge(p.status)">
                     {{ statusLabel(p.status) }}
                   </span>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-4 py-3.5 text-right">
                   <button (click)="downloadPdf(p.id)" [disabled]="downloading() === p.id"
-                          class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition disabled:opacity-50">
+                          class="btn btn-sm btn-secondary disabled:opacity-50">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     {{ downloading() === p.id ? '...' : 'PDF' }}
                   </button>
@@ -89,7 +89,7 @@ import { Payslip } from '../../core/models/kpay.models';
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="px-6 py-8 text-center text-slate-400">Aucun bulletin pour la période sélectionnée.</td>
+                <td colspan="6" class="px-4 py-8 text-center text-slate-400">Aucun bulletin pour la période sélectionnée.</td>
               </tr>
             }
           </tbody>
@@ -176,15 +176,14 @@ export class MyPayslipsComponent implements OnInit {
     }
 
     statusBadge(s: string): string {
-        const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium';
         const map: Record<string, string> = {
-            brouillon: 'bg-slate-100 text-slate-700',
-            soumis: 'bg-amber-100 text-amber-800',
-            approuve: 'bg-blue-100 text-blue-800',
-            rejete: 'bg-rose-100 text-rose-700',
-            paye: 'bg-emerald-100 text-emerald-800'
+            brouillon: 'badge badge-slate',
+            soumis: 'badge badge-amber',
+            approuve: 'badge badge-blue',
+            rejete: 'badge badge-rose',
+            paye: 'badge badge-emerald'
         };
-        return `${base} ${map[s] || 'bg-slate-100 text-slate-700'}`;
+        return map[s] || 'badge badge-slate';
     }
 
     private buildYears(): number[] {

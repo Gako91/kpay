@@ -10,102 +10,111 @@ import { Payslip } from '../../core/models/kpay.models';
     imports: [FormsModule, DecimalPipe],
     template: `
     <div class="space-y-6">
-      <div class="flex items-center justify-between">
+      <div class="page-head">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Gestion de la Paie</h1>
-          <p class="text-slate-500 text-sm">Générez la paie mensuelle et suivez le workflow des bulletins.</p>
+          <h1 class="page-title">Gestion de la Paie</h1>
+          <p class="page-subtitle">Générez la paie mensuelle et suivez le workflow des bulletins.</p>
         </div>
         <button
           (click)="runPayroll()"
           [disabled]="isRunning()"
-          class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition shadow flex items-center gap-2 disabled:opacity-50"
+          class="btn btn-primary disabled:opacity-50"
         >
           @if (isRunning()) {
             <span class="inline-block animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
             Génération...
           } @else {
-            ⚡ Lancer la Paie ({{ selectedMonth }}/{{ selectedYear }})
+            Lancer la Paie ({{ selectedMonth }}/{{ selectedYear }})
           }
         </button>
       </div>
 
       <!-- Filtres période -->
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2">
-          <select [(ngModel)]="selectedMonth" name="month" class="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
-            @for (m of months; track m.value) {
-              <option [value]="m.value">{{ m.label }}</option>
-            }
-          </select>
-          <select [(ngModel)]="selectedYear" name="year" class="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
-            @for (y of years; track y) {
-              <option [value]="y">{{ y }}</option>
-            }
-          </select>
-          <button (click)="loadPayslips()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filtrer</button>
-        </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <select [(ngModel)]="selectedMonth" name="month" class="select w-auto">
+          @for (m of months; track m.value) {
+            <option [value]="m.value">{{ m.label }}</option>
+          }
+        </select>
+        <select [(ngModel)]="selectedYear" name="year" class="select w-auto">
+          @for (y of years; track y) {
+            <option [value]="y">{{ y }}</option>
+          }
+        </select>
+        <button (click)="loadPayslips()" class="btn btn-secondary">Filtrer</button>
       </div>
 
       <!-- Message erreur -->
       @if (errorMessage()) {
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg text-sm">{{ errorMessage() }}</div>
+        <div class="alert alert-error">{{ errorMessage() }}</div>
       }
 
       <!-- Message succès -->
       @if (successMessage()) {
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">{{ successMessage() }}</div>
+        <div class="alert alert-success">{{ successMessage() }}</div>
       }
 
       <!-- Bulletins -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-sm text-slate-600">
-          <thead class="bg-slate-50 text-slate-700 uppercase font-semibold text-xs border-b border-slate-200">
+      <div class="card overflow-hidden">
+        <table class="data-table">
+          <thead>
             <tr>
-              <th class="px-6 py-3.5">ID</th>
-              <th class="px-6 py-3.5">Employé</th>
-              <th class="px-6 py-3.5">Période</th>
-              <th class="px-6 py-3.5 text-right">Brut</th>
-              <th class="px-6 py-3.5 text-right">Net</th>
-              <th class="px-6 py-3.5">Statut</th>
-              <th class="px-6 py-3.5 text-right">Actions</th>
+              <th>ID</th>
+              <th>Employé</th>
+              <th>Période</th>
+              <th class="text-right">Brut</th>
+              <th class="text-right">Net</th>
+              <th>Statut</th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y border-slate-100">
+          <tbody>
             @for (p of payslips(); track p.id) {
-              <tr class="hover:bg-slate-50 transition">
-                <td class="px-6 py-4 font-mono text-xs text-slate-400">#{{ p.id }}</td>
-                <td class="px-6 py-4 font-medium text-slate-900">{{ employeeName(p.employee_id) }}</td>
-                <td class="px-6 py-4 text-slate-500">{{ formatPeriod(p.paid_at || p.period_start) }}</td>
-                <td class="px-6 py-4 text-right">{{ p.gross_amount | number }} F</td>
-                <td class="px-6 py-4 text-right font-semibold text-slate-900">{{ p.net_amount | number }} F</td>
-                <td class="px-6 py-4">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" [class]="statusClass(p.status)">
+              <tr>
+                <td class="px-4 py-3.5 font-mono text-xs text-slate-400">#{{ p.id }}</td>
+                <td class="px-4 py-3.5 font-medium text-slate-900">{{ employeeName(p.employee_id) }}</td>
+                <td class="px-4 py-3.5 text-slate-500">{{ formatPeriod(p.paid_at || p.period_start) }}</td>
+                <td class="px-4 py-3.5 num">{{ p.gross_amount | number }} F</td>
+                <td class="px-4 py-3.5 num font-semibold text-slate-900">{{ p.net_amount | number }} F</td>
+                <td class="px-4 py-3.5">
+                  <span [class]="statusClass(p.status)">
                     {{ statusLabel(p.status) }}
                   </span>
                 </td>
-                <td class="px-6 py-4">
-                  <div class="flex gap-2 justify-end">
+                <td class="px-4 py-3.5">
+                  <div class="flex gap-1.5 justify-end">
                     @if (p.status === 'brouillon' || p.status === 'rejete') {
-                      <button (click)="submit(p.id)" class="px-3 py-1.5 text-xs font-medium bg-sky-600 hover:bg-sky-700 text-white rounded-lg">Soumettre</button>
+                      <button (click)="submit(p.id)" class="btn btn-sm btn-secondary">Soumettre</button>
                     }
                     @if (p.status === 'soumis') {
-                      <button (click)="approve(p.id)" class="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Approuver</button>
-                      <button (click)="reject(p.id)" class="px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg">Rejeter</button>
+                      <button (click)="approve(p.id)" class="btn btn-sm btn-secondary">Approuver</button>
+                      <button (click)="reject(p.id)" class="btn btn-sm btn-danger">Rejeter</button>
                     }
                     @if (p.status === 'approuve') {
-                      <button (click)="pay(p.id)" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">Payer</button>
+                      <button (click)="pay(p.id)" class="btn btn-sm btn-success">Payer</button>
                     }
                   </div>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="px-6 py-8 text-center text-slate-400">
+                <td colspan="7" class="px-4 py-8 text-center text-slate-400">
                   Aucun bulletin pour cette période. Lancez la génération de paie.
                 </td>
               </tr>
             }
           </tbody>
+          @if (payslips().length > 0) {
+            <tfoot>
+              <tr>
+                <td colspan="3">Total ({{ payslips().length }} bulletin(s))</td>
+                <td class="num">{{ totalGross() | number }} F</td>
+                <td class="num">{{ totalNet() | number }} F</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          }
         </table>
       </div>
     </div>
@@ -229,13 +238,21 @@ export class PayrollComponent implements OnInit {
 
     statusClass(status: string): string {
         const classes: Record<string, string> = {
-            brouillon: 'bg-slate-100 text-slate-800',
-            soumis: 'bg-sky-100 text-sky-800',
-            approuve: 'bg-blue-100 text-blue-800',
-            rejete: 'bg-amber-100 text-amber-800',
-            paye: 'bg-emerald-100 text-emerald-800'
+            brouillon: 'badge badge-slate',
+            soumis: 'badge badge-amber',
+            approuve: 'badge badge-blue',
+            rejete: 'badge badge-rose',
+            paye: 'badge badge-emerald'
         };
-        return classes[status] || 'bg-slate-100 text-slate-800';
+        return classes[status] || 'badge badge-slate';
+    }
+
+    totalGross(): number {
+        return this.payslips().reduce((acc, p) => acc + p.gross_amount, 0);
+    }
+
+    totalNet(): number {
+        return this.payslips().reduce((acc, p) => acc + p.net_amount, 0);
     }
 
     private extractError(err: any): string {
