@@ -43,20 +43,20 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 
 ### 1.2 Gestion des Congés & Absences — Workflow 2 niveaux
 
-- [ ] **Hiérarchie manager**
+- [x] **Hiérarchie manager**
   - [x] Ajout `manager_id` sur `employee` (+ bump RIB/contrat)
   - [x] Migration : auto-rattachement manager = admin organisation par défaut
-- [ ] **Workflow N+1 → RH**
+- [x] **Workflow N+1 → RH**
   - [x] État `en_attente` → validation N+1 (`approve_mgr`) → validation RH (`approve_rh`) → `approuve`
   - [x] Refus possible à chaque niveau avec motif (`rejection_reason`)
   - [x] Notifications (queue existante) à chaque étape du workflow
-- [ ] **Soldes de congés**
+- [x] **Soldes de congés**
   - [x] Table `leave_balance` par employé/année (congé payé, RTT, maladie, sans solde)
   - [x] Endpoint `GET /me/leave-balance`
   - [x] Déduction automatique du solde lors de la validation RH
   - [x] Cumul automatique en début d'année + prorata pour les nouvelles embauches
   - [x] Afficher le solde sur le bulletin de paie (post-calcul)
-- [ ] **Abandons / congés maladie**
+- [x] **Abandons / congés maladie**
   - [x] Type `maladie` avec justificatif (upload PDF, limite taille/type)
   - [x] Règles de carence et délai de déclaration configurable par organisation
 
