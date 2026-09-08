@@ -30,14 +30,27 @@ pub fn (mut app App) render_payslip_pdf(mut ctx Context, id int) veb.Result {
 		}
 	}
 	cnps_rules := app.repo.get_tax_rules('CI', ctx.user_org)
+	components := app.repo.get_components(ctx.user_org)
+	brackets := app.repo.get_brackets(ctx.user_org)
 	adjustments := app.repo.get_adjustments_for_period(emp.id, payslip.period_start.month, payslip.period_start.year, ctx.user_org)
 
 	// Affichage basé sur les montants FIGÉS du bulletin (gross_amount, total_taxes, net_amount)
 	// et non sur un recalcul complet. On ne recalcule que le détail des lignes de cotisations
-	// (salariales + patronales) à partir des règles CNPS appliquées au brut figé.
+	// (salariales + patronales) à partir des règles actives à la période (moteur) appliquées au brut figé.
 	frozen_gross := payslip.gross_amount
-	tax_details := core.calculate_pay_full_ci(contract, cnps_rules, adjustments, emp.tax_parts).tax_details
-	employer_details, employer_total := core.calculate_employer_contributions_ci(cnps_rules, frozen_gross)
+	period_date := '${payslip.period_start.year:04d}-${payslip.period_start.month:02d}-01'
+	mut tax_details := []core.TaxLine{}
+	mut employer_details := []core.TaxLine{}
+	mut employer_total := i64(0)
+	if components.len > 0 {
+		eff_components := core.select_effective_components(components, period_date)
+		eff_brackets := core.select_effective_brackets(brackets, period_date)
+		tax_details = core.compute_payslip_configurable(contract, eff_components, eff_brackets, adjustments, emp.tax_parts).tax_details.clone()
+		employer_details, employer_total = core.employer_contributions_configurable(eff_components, frozen_gross)
+	} else {
+		tax_details = core.calculate_pay_full_ci(contract, cnps_rules, adjustments, emp.tax_parts).tax_details.clone()
+		employer_details, employer_total = core.calculate_employer_contributions_ci(cnps_rules, frozen_gross)
+	}
 
 	// Objet MinIO préfixé par organisation pour assurer l'isolation des fichiers entre tenants
 	object_name := 'org_${ctx.user_org}/bulletin_${id}.pdf'

@@ -115,3 +115,56 @@ export interface LoginRequest {
     username: string;
     password: string;
 }
+
+// --- Règles sociales (Pilier 2.2 — moteur de règles fiscales dynamiques) ---
+export interface TaxComponent {
+    id?: number;
+    organization_id?: number;
+    code: string;
+    name: string;
+    rate: number; // décimal (ex: 0.063 = 6.3%)
+    basis_type: 'brut' | 'plafonne' | 'forfait' | 'brut80';
+    cap?: number; // plafond d'assiette FCFA (0 = non plafonné)
+    fixed_amount?: number; // montant forfaitaire FCFA
+    share: 'salarial' | 'patronal';
+    effective_from?: string; // 'YYYY-MM-DD'
+    is_active?: boolean;
+    country?: string;
+}
+
+export interface TaxBracket {
+    id?: number;
+    organization_id?: number;
+    component_code: 'CN' | 'IGR';
+    lower_bound: number;
+    upper_bound: number; // -1 = non borné
+    rate: number; // taux marginal décimal
+    flat: number; // constante : amount = round(base*rate - flat)
+    effective_from?: string;
+    is_active?: boolean;
+}
+
+export interface TaxLine {
+    name: string;
+    amount: number;
+}
+
+export interface TaxImpactRequest {
+    gross: number;
+    tax_parts: number;
+    period?: string;
+    components?: TaxComponent[];
+    brackets?: TaxBracket[];
+}
+
+export interface TaxImpactResult {
+    net: number;
+    taxes: number;
+    details: TaxLine[];
+}
+
+export interface TaxImpactResponse {
+    current: TaxImpactResult;
+    proposed: TaxImpactResult;
+    delta_net: number;
+}

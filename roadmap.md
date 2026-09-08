@@ -68,22 +68,22 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 
 ### 2.1 Multi-Entreprises (termes de Phase 0)
 
-- [ ] Isolation stricte : toutes les requêtes DB scoped par `organization_id` (cf. Phase 0)
-- [ ] Validation : test d'isolation inter-organisations (impossible de lire/écrire les données d'une autre organisation)
+- [x] Isolation stricte : toutes les requêtes DB scoped par `organization_id` (cf. Phase 0)
+- [x] Validation : test d'isolation inter-organisations (impossible de lire/écrire les données d'une autre organisation)
 
 ### 2.2 Moteur de Règles Fiscales Configurables
 
-- [ ] **Modèle de données**
-  - [ ] Table `tax_rule` : ajout `effective_from` (date d'effet), `organization_id`, `is_active`
-  - [ ] Modèle réel des cotisations : `tax_component` (retraite, maladie, AMV, AT, prestations familiales…) avec `rate`, `cap`, `basis_type` (brut/plafonne), `share` (salarial/patronal)
-  - [ ] Tranches ITS/IGR : table `tax_bracket` (min, max, rate) avec vérification de non-recouvrement
-- [ ] **Logique**
-  - [ ] `core/tax_engine.v` : évaluation d'une fiche de paie contre les règles actives à la date de la période (pas à la date de calcul)
-  - [ ] Historique : changement de loi → nouvelle règle avec `effective_from`, les périodes passées restent stables (« pour éviter de recompiler »)
-- [ ] **Paramétrage & API**
-  - [ ] `GET/POST/PUT /admin/tax-components`, `GET/POST/PUT /admin/tax-brackets` (admin, par organisation)
-  - [ ] Comparaison avant/après d'une règle (impact sur le net)
-  - [ ] Page frontend « Règles sociales » : éditeur de taux/tranches avec aperçu d'impact
+- [x] **Modèle de données**
+  - [x] Table `tax_rule` : ajout `effective_from` (date d'effet), `organization_id`, `is_active`
+  - [x] Modèle réel des cotisations : `tax_component` (retraite, maladie, AMV, AT, prestations familiales…) avec `rate`, `cap`, `basis_type` (brut/plafonne), `share` (salarial/patronal)
+  - [x] Tranches ITS/IGR : table `tax_bracket` (min, max, rate) avec vérification de non-recouvrement
+- [x] **Logique**
+  - [x] `core/tax_engine.v` : évaluation d'une fiche de paie contre les règles actives à la date de la période (pas à la date de calcul)
+  - [x] Historique : changement de loi → nouvelle règle avec `effective_from`, les périodes passées restent stables (« pour éviter de recompiler »)
+- [x] **Paramétrage & API**
+  - [x] `GET/POST/PUT /admin/tax-components`, `GET/POST/PUT /admin/tax-brackets` (admin, par organisation)
+  - [x] Comparaison avant/après d'une règle (impact sur le net)
+  - [x] Page frontend « Règles sociales » : éditeur de taux/tranches avec aperçu d'impact
 
 ---
 

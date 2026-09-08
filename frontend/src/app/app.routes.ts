@@ -8,6 +8,7 @@ import { LeavesComponent } from './features/leaves/leaves.component';
 import { MyPayslipsComponent } from './features/my-payslips/my-payslips.component';
 import { MyProfileComponent } from './features/my-profile/my-profile.component';
 import { ProfileChangesComponent } from './features/profile-changes/profile-changes.component';
+import { TaxRulesComponent } from './features/tax-rules/tax-rules.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -24,7 +25,8 @@ export const routes: Routes = [
             { path: 'leaves', component: LeavesComponent },
             { path: 'my-payslips', component: MyPayslipsComponent },
             { path: 'my-profile', component: MyProfileComponent },
-            { path: 'profile-changes', component: ProfileChangesComponent }
+            { path: 'profile-changes', component: ProfileChangesComponent },
+            { path: 'admin/tax-rules', component: TaxRulesComponent }
         ]
     },
     { path: '**', redirectTo: 'login' }

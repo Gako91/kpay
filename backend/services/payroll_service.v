@@ -30,8 +30,13 @@ pub fn (mut s PayrollService) run_monthly_payroll(org_id int, month int, year in
 	// 1. Récupérer tous les employés actifs de l'organisation
 	employees := s.repo.get_all_employees(org_id)
 
-	// 2. Récupérer les cotisations CNPS (Côte d'Ivoire) de l'organisation
+	// 2. Récupérer les cotisations de l'organisation.
+	//    Si des composantes sont configurées (moteur de règles dynamique), on les applique
+	//    telles qu'actives à la date de période ; sinon fallback sur le barème legacy.
 	rules := s.repo.get_tax_rules('CI', org_id)
+	components := s.repo.get_components(org_id)
+	brackets := s.repo.get_brackets(org_id)
+	period_date := '${year:04d}-${month:02d}-01'
 
 	for emp in employees {
 		// 3. Récupérer le contrat actif de l'employé
@@ -44,7 +49,14 @@ pub fn (mut s PayrollService) run_monthly_payroll(org_id int, month int, year in
 		adjustments := s.repo.get_adjustments_for_period(emp.id, month, year, org_id)
 
 		// 5. Calculer la paie complète (CNPS, CMU, IS, CN, IGR avec quotient familial)
-		result := core.calculate_pay_full_ci(contract, rules, adjustments, emp.tax_parts)
+		mut result := core.CalculationResult{}
+		if components.len > 0 {
+			eff_components := core.select_effective_components(components, period_date)
+			eff_brackets := core.select_effective_brackets(brackets, period_date)
+			result = core.compute_payslip_configurable(contract, eff_components, eff_brackets, adjustments, emp.tax_parts)
+		} else {
+			result = core.calculate_pay_full_ci(contract, rules, adjustments, emp.tax_parts)
+		}
 
 		// 6. Créer le bulletin (Payslip)
 		period_start := time.Time{

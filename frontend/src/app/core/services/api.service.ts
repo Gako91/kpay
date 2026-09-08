@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -162,5 +162,34 @@ export class ApiService {
 
     rejectProfileChange(id: number, reason: string): Observable<{ success: boolean; data: string; message: string }> {
         return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/profile-changes/${id}/reject`, { reason });
+    }
+
+    // --- Règles sociales (Pilier 2.2 — moteur de règles fiscales dynamiques) ---
+    getTaxComponents(): Observable<TaxComponent[]> {
+        return this.http.get<TaxComponent[]>(`${this.baseUrl}/admin/tax-components`);
+    }
+
+    createTaxComponent(component: Partial<TaxComponent>): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/tax-components`, component);
+    }
+
+    updateTaxComponent(id: number, component: Partial<TaxComponent>): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/tax-components/${id}`, component);
+    }
+
+    getTaxBrackets(): Observable<TaxBracket[]> {
+        return this.http.get<TaxBracket[]>(`${this.baseUrl}/admin/tax-brackets`);
+    }
+
+    createTaxBracket(bracket: Partial<TaxBracket>): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/tax-brackets`, bracket);
+    }
+
+    updateTaxBracket(id: number, bracket: Partial<TaxBracket>): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/tax-brackets/${id}`, bracket);
+    }
+
+    computeTaxImpact(request: TaxImpactRequest): Observable<TaxImpactResponse> {
+        return this.http.post<TaxImpactResponse>(`${this.baseUrl}/admin/tax-impact`, request);
     }
 }
