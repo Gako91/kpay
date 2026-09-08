@@ -93,8 +93,14 @@ fn test_generate_payslip_pdf() {
 		core.TaxLine{ name: 'CNPS Retraite (part patronale)', amount: 30800 },
 		core.TaxLine{ name: 'CNPS Prestations Familiales (part patronale)', amount: 4025 },
 	]
+	balances := [
+		models.LeaveBalance{ leave_type: 'conge_paye', accrued_days: 24.0, used_days: 5.0 },
+		models.LeaveBalance{ leave_type: 'rtt', accrued_days: 12.0, used_days: 0.0 },
+		models.LeaveBalance{ leave_type: 'maladie', accrued_days: 0.0, used_days: 2.0 },
+		models.LeaveBalance{ leave_type: 'sans_solde', accrued_days: 0.0, used_days: 0.0 },
+	]
 
-	pdf_bytes := generate_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 34825) or {
+	pdf_bytes := generate_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 34825, balances) or {
 		assert false, 'generate_payslip_pdf a echoue: ${err}'
 		return
 	}
@@ -103,6 +109,9 @@ fn test_generate_payslip_pdf() {
 	// Le header magique d'un fichier PDF valide commence par %PDF-
 	pdf_str := pdf_bytes.bytestr()
 	assert pdf_str.starts_with('%PDF-'), 'Le PDF doit commencer par %PDF-'
+	// Le bloc des soldes de congés doit être présent (post-calcul)
+	assert pdf_str.contains('SOLDES DE CONGES'), "Le bloc 'SOLDES DE CONGES' doit apparaître"
+	assert pdf_str.contains('CONGE PAYE'), 'Le bulletin doit afficher le type CONGE PAYE'
 
 	// Vérifier le bon fonctionnement du formatage monétaire avec séparateurs
 	assert format_fcfa(payslip.gross_amount) == '400 000 FCFA'
@@ -146,7 +155,7 @@ fn test_generate_and_store_payslip_pdf() {
 	// Nettoyer un éventuel fichier résiduel du test précédent
 	os.rm('storage/payslips/bulletin_99.pdf') or {}
 
-	stored_path := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 38500) or {
+	stored_path := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 38500, []models.LeaveBalance{}) or {
 		assert false, 'generate_and_store_payslip_pdf a echoue: ${err}'
 		return
 	}
@@ -155,7 +164,7 @@ fn test_generate_and_store_payslip_pdf() {
 	assert os.exists(stored_path), 'Le fichier PDF doit exister sur disque'
 
 	// Appel idempotent : doit retourner le même chemin sans regénérer
-	stored_path2 := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 38500) or {
+	stored_path2 := generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, 38500, []models.LeaveBalance{}) or {
 		assert false
 		return
 	}

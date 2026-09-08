@@ -57,6 +57,8 @@ fn (s &LeaveService) resolve_initial_status(emp models.Employee, org_id int) str
 }
 
 // submit_request crée une demande de congé pour l'employé et notifie le N+1.
+// Pour un congé maladie, le délai de déclaration configuré pour l'organisation est vérifié
+// (l'absence doit être déclarée dans les N jours suivant sa date de début).
 pub fn (mut s LeaveService) submit_request(emp models.Employee, leave_type string, start time.Time, end time.Time, days f32, reason string, org_id int) !models.LeaveRequest {
 	if !leave_allowed_types.contains(leave_type) {
 		return error("Type de congé invalide: '${leave_type}'")
@@ -66,6 +68,15 @@ pub fn (mut s LeaveService) submit_request(emp models.Employee, leave_type strin
 	}
 	if days <= 0 {
 		return error('Le nombre de jours doit être positif')
+	}
+	org := s.repo.get_organization_by_id(org_id) or {
+		return error('Organisation introuvable')
+	}
+	if leave_type == 'maladie' && org.leave_declaration_deadline_days > 0 {
+		elapsed_days := (time.now().unix() - start.unix()) / 86400
+		if elapsed_days > i64(org.leave_declaration_deadline_days) {
+			return error("Délai de déclaration dépassé : un congé maladie doit être déclaré dans les ${org.leave_declaration_deadline_days} jours suivant sa date de début")
+		}
 	}
 	req := models.LeaveRequest{
 		organization_id: org_id

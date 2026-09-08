@@ -90,7 +90,12 @@ fn (mut r Repository) init_tables() ! {
 	r.db.exec('ALTER TABLE payslip ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;') or {}
 	// Rétro-compatibilité : les bulletins déjà payés sont marqués 'paye'
 	r.db.exec("UPDATE payslip SET status = 'paye' WHERE is_paid = true AND status = 'brouillon';") or {}
+	// Pilier 1.2 — règles de carence & délai de déclaration du congé maladie par organisation (migration 013)
+	r.db.exec('ALTER TABLE organization ADD COLUMN IF NOT EXISTS leave_carence_days INT NOT NULL DEFAULT 3;') or {}
+	r.db.exec('ALTER TABLE organization ADD COLUMN IF NOT EXISTS leave_declaration_deadline_days INT NOT NULL DEFAULT 2;') or {}
 }
+
+// run_migrations applique les scripts SQL versionnés depuis le dossier spécifié.
 
 // run_migrations applique les scripts SQL versionnés depuis le dossier spécifié.
 pub fn (mut r Repository) run_migrations(migrations_dir string) ! {

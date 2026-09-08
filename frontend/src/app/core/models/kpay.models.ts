@@ -168,3 +168,16 @@ export interface TaxImpactResponse {
     proposed: TaxImpactResult;
     delta_net: number;
 }
+
+// --- Paramètres d'organisation (Pilier 1.2 — règles de carence & délai de déclaration) ---
+export interface OrgLeaveSettings {
+    id: number;
+    name: string;
+    leave_carence_days: number;
+    leave_declaration_deadline_days: number;
+}
+
+export interface OrgLeaveSettingsInput {
+    carence_days: number;
+    deadline_days: number;
+}

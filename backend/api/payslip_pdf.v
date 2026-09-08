@@ -52,6 +52,11 @@ pub fn (mut app App) render_payslip_pdf(mut ctx Context, id int) veb.Result {
 		employer_details, employer_total = core.calculate_employer_contributions_ci(cnps_rules, frozen_gross)
 	}
 
+	// Soldes de congés de l'employé pour l'année de la période (affichés en pied de bulletin)
+	balances := app.leave_svc.get_balance(emp, payslip.period_start.year, ctx.user_org) or {
+		[]models.LeaveBalance{}
+	}
+
 	// Objet MinIO préfixé par organisation pour assurer l'isolation des fichiers entre tenants
 	object_name := 'org_${ctx.user_org}/bulletin_${id}.pdf'
 	mut pdf_bytes := []u8{}
@@ -59,7 +64,7 @@ pub fn (mut app App) render_payslip_pdf(mut ctx Context, id int) veb.Result {
 	// Tenter de récupérer depuis MinIO en priorité
 	pdf_bytes = app.storage_svc.download_file(object_name) or {
 		// Si absent de MinIO, générer le PDF et l'uploader vers MinIO
-		gen_path := services.generate_and_store_payslip_pdf_minio(payslip, emp, contract, tax_details, employer_details, employer_total, object_name, &app.storage_svc) or {
+		gen_path := services.generate_and_store_payslip_pdf_minio(payslip, emp, contract, tax_details, employer_details, employer_total, balances, object_name, &app.storage_svc) or {
 			services.log_error('Erreur génération PDF bulletin ${id}: ${err}')
 			ctx.res.set_status(.internal_server_error)
 			return ctx.json(dto.error_response('Erreur lors de la génération du PDF'))

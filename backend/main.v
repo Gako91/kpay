@@ -94,6 +94,7 @@ fn main() {
 	services.log_info('  POST /auth/register - Création de compte employee (org 1)')
 	services.log_info('  POST /admin/organizations - Créer une organisation + admin (plateforme)')
 	services.log_info('  GET  /admin/organizations - Liste des organisations (plateforme)')
+	services.log_info('  GET|PUT /admin/org-settings - Paramètres congés par organisation (carence + délai de déclaration, admin/RH)')
 	services.log_info('  GET  /           - Info API')
 	services.log_info('  GET  /health     - Health check')
 	services.log_info('  GET  /health/db  - Statut du pool DB (admin)')

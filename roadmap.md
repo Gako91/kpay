@@ -55,10 +55,10 @@ Avant de construire les fonctionnalités, sécuriser le socle.
   - [x] Endpoint `GET /me/leave-balance`
   - [x] Déduction automatique du solde lors de la validation RH
   - [x] Cumul automatique en début d'année + prorata pour les nouvelles embauches
-  - [ ] Afficher le solde sur le bulletin de paie (post-calcul)
+  - [x] Afficher le solde sur le bulletin de paie (post-calcul)
 - [ ] **Abandons / congés maladie**
   - [x] Type `maladie` avec justificatif (upload PDF, limite taille/type)
-  - [ ] Règles de carence et délai de déclaration configurable par organisation
+  - [x] Règles de carence et délai de déclaration configurable par organisation
 
 ---
 

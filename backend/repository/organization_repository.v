@@ -36,3 +36,14 @@ pub fn (mut r Repository) create_organization(org models.Organization) !int {
 	}!
 	return inserted_id
 }
+
+// update_leave_settings met à jour les règles de carence & délai de déclaration d'une organisation.
+pub fn (mut r Repository) update_leave_settings(org_id int, carence_days int, deadline_days int) ! {
+	r.db.exec_param_many('UPDATE organization SET leave_carence_days = \$2, leave_declaration_deadline_days = \$3 WHERE id = \$1;', [
+		org_id.str(),
+		carence_days.str(),
+		deadline_days.str(),
+	]) or {
+		return error("Échec de la mise à jour des paramètres congés: ${err}")
+	}
+}

@@ -9,6 +9,7 @@ import { MyPayslipsComponent } from './features/my-payslips/my-payslips.componen
 import { MyProfileComponent } from './features/my-profile/my-profile.component';
 import { ProfileChangesComponent } from './features/profile-changes/profile-changes.component';
 import { TaxRulesComponent } from './features/tax-rules/tax-rules.component';
+import { OrgSettingsComponent } from './features/org-settings/org-settings.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -26,7 +27,8 @@ export const routes: Routes = [
             { path: 'my-payslips', component: MyPayslipsComponent },
             { path: 'my-profile', component: MyProfileComponent },
             { path: 'profile-changes', component: ProfileChangesComponent },
-            { path: 'admin/tax-rules', component: TaxRulesComponent }
+            { path: 'admin/tax-rules', component: TaxRulesComponent },
+            { path: 'admin/settings', component: OrgSettingsComponent }
         ]
     },
     { path: '**', redirectTo: 'login' }

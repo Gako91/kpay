@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -191,5 +191,14 @@ export class ApiService {
 
     computeTaxImpact(request: TaxImpactRequest): Observable<TaxImpactResponse> {
         return this.http.post<TaxImpactResponse>(`${this.baseUrl}/admin/tax-impact`, request);
+    }
+
+    // --- Paramètres congés par organisation (Pilier 1.2) ---
+    getOrgLeaveSettings(): Observable<OrgLeaveSettings> {
+        return this.http.get<OrgLeaveSettings>(`${this.baseUrl}/admin/org-settings`);
+    }
+
+    updateOrgLeaveSettings(input: OrgLeaveSettingsInput): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/org-settings`, input);
     }
 }

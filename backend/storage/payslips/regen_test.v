@@ -40,7 +40,7 @@ fn test_regen_payslip_pdf() {
 	employer_total := i64(30800)
 
 	// regen
-	path := services.generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, employer_total) or {
+	path := services.generate_and_store_payslip_pdf(payslip, emp, contract, tax_details, employer_details, employer_total, []models.LeaveBalance{}) or {
 		assert false, 'Erreur lors de la génération: ${err}'
 		return
 	}

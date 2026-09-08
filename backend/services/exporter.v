@@ -238,10 +238,22 @@ fn format_amount_clean(amount i64) string {
 	return result
 }
 
+// leave_balance_label traduit un type de congé en libellé affiché sur le bulletin.
+fn leave_balance_label(t string) string {
+	return match t {
+		'conge_paye' { 'CONGE PAYE' }
+		'rtt' { 'RTT' }
+		'maladie' { 'MALADIE' }
+		'sans_solde' { 'SANS SOLDE' }
+		else { t.to_upper() }
+	}
+}
+
 // generate_payslip_pdf génère le bulletin de paie au format professionnel conforme aux standards CI/UEMOA.
 // Les cotisations patronales (employer_details + employer_total) sont calculées à partir des règles CNPS
 // réelles en base (voir core.calculate_employer_contributions_ci), plus l'approximation ×1.87 figée.
-pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64) ![]u8 {
+// Les soldes de congés annuels (balances) sont affichés en pied de bulletin pour information.
+pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, balances []models.LeaveBalance) ![]u8 {
 	mut doc := pdf.Pdf{}
 	doc.init()
 
@@ -357,14 +369,14 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	// Section salariale
 	draw_salari_row(mut doc, page_idx_mut, 'COT SAL.', 'COTISATIONS SALARIALES', p.gross_amount, p.gross_amount, sub, body_fnt, body_bold)
 	sub -= 6.0
-	if sub < 80.0 {
+	if sub < 125.0 {
 		page_idx_mut = new_payslip_page(mut doc, header_fnt)
 		sub = 230.0
 	}
 	for i, line in tax_details {
 		draw_salari_row(mut doc, page_idx_mut, '${400 + (i + 1) * 10}', line.name, p.gross_amount, line.amount, sub, body_fnt, body_bold)
 		sub -= 6.0
-		if sub < 80.0 {
+		if sub < 125.0 {
 			page_idx_mut = new_payslip_page(mut doc, header_fnt)
 			sub = 230.0
 		}
@@ -374,7 +386,7 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	if employer_details.len > 0 {
 		draw_patronal_row(mut doc, page_idx_mut, 'COT PAT.', 'COTISATIONS PATRONALES', p.gross_amount, total_patronal, sub, body_fnt, body_bold)
 		sub -= 6.0
-		if sub < 80.0 {
+		if sub < 125.0 {
 			page_idx_mut = new_payslip_page(mut doc, header_fnt)
 			sub = 230.0
 		}
@@ -382,9 +394,33 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	for i, elk in employer_details {
 		draw_patronal_row(mut doc, page_idx_mut, '${510 + (i + 1) * 10}', elk.name, p.gross_amount, elk.amount, sub, body_fnt, body_bold)
 		sub -= 6.0
-		if sub < 80.0 {
+		if sub < 125.0 {
 			page_idx_mut = new_payslip_page(mut doc, header_fnt)
 			sub = 230.0
+		}
+	}
+
+	// ==================== 3.b SOLDES DE CONGES (post-calcul, année de la période) ====================
+	if balances.len > 0 {
+		sub -= 4.0
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('SOLDES DE CONGES (annee ${p.period_start.year})', 15, sub, header_fnt))
+		sub -= 6.0
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Type', 25, sub, header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Acquis (j)', 110, sub, header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Utilises (j)', 145, sub, header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Restant (j)', 180, sub, header_fnt))
+		sub -= 6.0
+		for b in balances {
+			if sub < 90.0 {
+				page_idx_mut = new_payslip_page(mut doc, header_fnt)
+				sub = 230.0
+			}
+			remaining := b.accrued_days - b.used_days
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(leave_balance_label(b.leave_type), 25, sub, body_fnt))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${b.accrued_days:.1f}', 110, sub, body_fnt))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${b.used_days:.1f}', 145, sub, body_fnt))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${remaining:.1f}', 180, sub, body_bold))
+			sub -= 6.0
 		}
 	}
 
@@ -453,7 +489,7 @@ fn new_payslip_page(mut doc pdf.Pdf, header_fnt pdf.Text_params) int {
 // pdf_dir/bulletin_<payslip_id>.pdf, et retourne le chemin du fichier.
 // Si le fichier existe déjà (pdf_path non vide dans le Payslip), il est renvoyé directement
 // sans regénération (mise en cache simple par existence de fichier).
-pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64) !string {
+pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, balances []models.LeaveBalance) !string {
 	filepath := '${pdf_dir}/bulletin_${p.id}.pdf'
 
 	// Réutiliser le fichier existant si déjà généré
@@ -466,7 +502,7 @@ pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, con
 		return error('Impossible de créer le dossier PDF (${pdf_dir}): ${err}')
 	}
 
-	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total)!
+	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total, balances)!
 	os.write_file_array(filepath, pdf_bytes) or {
 		return error("Impossible d'écrire le fichier PDF (${filepath}): ${err}")
 	}
@@ -476,9 +512,9 @@ pub fn generate_and_store_payslip_pdf(p models.Payslip, emp models.Employee, con
 
 // generate_and_store_payslip_pdf_minio génère le PDF, le sauvegarde dans MinIO et sur disque (cache).
 // object_key doit être scopé par organisation (ex: 'org_2/bulletin_42.pdf') pour l'isolation des tenants.
-pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, object_key string, storage &StorageService) !string {
+pub fn generate_and_store_payslip_pdf_minio(p models.Payslip, emp models.Employee, contract models.Contract, tax_details []core.TaxLine, employer_details []core.TaxLine, employer_total i64, balances []models.LeaveBalance, object_key string, storage &StorageService) !string {
 	// Générer les octets du PDF
-	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total)!
+	pdf_bytes := generate_payslip_pdf(p, emp, contract, tax_details, employer_details, employer_total, balances)!
 
 	// Upload vers MinIO
 	s3_key := storage.upload_file(object_key, pdf_bytes) or {
