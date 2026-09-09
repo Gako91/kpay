@@ -40,6 +40,12 @@ pub:
 	smtp_from     string
 	smtp_ssl      bool // SSL implicite (port 465)
 	smtp_starttls bool // STARTTLS (port 587)
+	// SSO OIDC (Pilier 3) — Authorization Code + PKCE
+	oidc_issuer        string // ex: https://accounts.google.com (découverte /.well-known/openid-configuration)
+	oidc_client_id     string
+	oidc_client_secret string
+	oidc_redirect_uri  string // ex: http://localhost:9199/auth/sso/callback
+	oidc_scopes        string // ex: openid email profile
 }
 
 // Charge les variables d'environnement depuis un fichier .env
@@ -107,6 +113,11 @@ pub fn load_config() Config {
 		smtp_from: os.getenv_opt('KPAY_SMTP_FROM') or { 'kpay@localhost' }
 		smtp_ssl: (os.getenv_opt('KPAY_SMTP_SSL') or { 'false' }).to_lower() == 'true'
 		smtp_starttls: (os.getenv_opt('KPAY_SMTP_STARTTLS') or { 'true' }).to_lower() == 'true'
+		oidc_issuer: os.getenv_opt('KPAY_OIDC_ISSUER') or { '' }
+		oidc_client_id: os.getenv_opt('KPAY_OIDC_CLIENT_ID') or { '' }
+		oidc_client_secret: os.getenv_opt('KPAY_OIDC_CLIENT_SECRET') or { '' }
+		oidc_redirect_uri: os.getenv_opt('KPAY_OIDC_REDIRECT_URI') or { '' }
+		oidc_scopes: os.getenv_opt('KPAY_OIDC_SCOPES') or { 'openid email profile' }
 	}
 }
 

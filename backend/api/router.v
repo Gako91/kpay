@@ -34,9 +34,10 @@ pub mut:
 pub struct Context {
 	veb.Context
 pub mut:
-	user_sub  string // Identifiant de l'utilisateur authentifié (JWT sub)
-	user_role string // Rôle de l'utilisateur authentifié
-	user_org  int // Organisation (tenant) de l'utilisateur authentifié
+	user_sub   string // Identifiant de l'utilisateur authentifié (JWT sub)
+	user_role  string // Rôle de l'utilisateur authentifié
+	user_org   int // Organisation (tenant) de l'utilisateur authentifié
+	user_perms []string // Permissions du rôle courant (RBAC, Pilier 3)
 }
 
 // has_role vérifie que l'utilisateur courant possède l'un des rôles requis.
@@ -47,11 +48,21 @@ fn (ctx &Context) has_role(allowed_roles []string) bool {
 	return allowed_roles.contains(ctx.user_role)
 }
 
+// has_permission vérifie une permission granulaire (RBAC).
+// Le rôle admin possède toutes les permissions de façon implicite.
+fn (ctx &Context) has_permission(code string) bool {
+	if ctx.user_role == 'admin' {
+		return true
+	}
+	return ctx.user_perms.contains(code)
+}
+
 // ==================== MIDDLEWARE ====================
 
 // PUBLIC_PATHS liste les routes accessibles sans authentification
 const public_paths = ['/', '/health', '/health/liveness', '/health/readiness', '/metrics',
-	'/openapi.yaml', '/docs', '/favicon.ico', '/auth/login', '/auth/register']
+	'/openapi.yaml', '/docs', '/favicon.ico', '/auth/login', '/auth/register', '/auth/login/mfa',
+	'/auth/sso/config', '/auth/sso/authorize', '/auth/sso/callback']
 
 fn is_public(ctx Context) bool {
 	for p in public_paths {
@@ -132,6 +143,10 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 		ctx.user_sub = claims.sub
 		ctx.user_role = claims.role
 		ctx.user_org = claims.org
+		// Permissions du rôle chargées depuis la base (effet immédiat après un changement RBAC)
+		if claims.role != 'admin' {
+			ctx.user_perms = app.repo.get_role_permissions(claims.role)
+		}
 		return true
 	}
 

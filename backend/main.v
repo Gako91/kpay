@@ -134,6 +134,17 @@ fn main() {
 	services.log_info('  POST /leaves/:id/mgr-approve|mgr-reject - Validation N+1 (motif au refus)')
 	services.log_info('  POST /leaves/:id/rh-approve|rh-reject   - Validation RH (motif au refus, débit du solde)')
 	services.log_info('  GET|POST /leaves/:id/justificatif       - Justificatif PDF (congé maladie)')
+	services.log_info('  POST /auth/login/mfa                     - 2e étape de connexion (code TOTP / secours)')
+	services.log_info('  POST /mfa/enroll|verify|disable          - Activation MFA TOTP + codes de secours')
+	services.log_info('  GET  /mfa/status                         - État MFA du compte courant')
+	services.log_info('  GET  /auth/sso/config                    - Configuration SSO OIDC exposée')
+	services.log_info('  GET  /auth/sso/authorize                  - Redirection fournisseur OIDC (PKCE)')
+	services.log_info('  GET  /auth/sso/callback                   - Retour OIDC → échange code / JWT')
+	services.log_info('  GET  /me/sso + DELETE /me/sso/:id         - Liens SSO du compte courant')
+	services.log_info('  GET  /admin/permissions                   - Catalogue des permissions (role.manage)')
+	services.log_info('  GET  /admin/roles                         - Rôles + permissions (role.manage)')
+	services.log_info('  PUT  /admin/roles/:role/permissions       - Mettre à jour les permissions (role.manage)')
+	services.log_info('  GET|POST /admin/users + PUT /admin/users/:id - Gestion des comptes (user.manage)')
 
 	veb.run[api.App, api.Context](mut app, config.port)
 }

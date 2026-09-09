@@ -38,7 +38,7 @@ pub fn new_repository(config common.Config) !Repository {
 	}
 	repo.init_tables()!
 	repo.run_migrations('migrations') or {
-		// Si le dossier n'existe pas ou en cas d'erreur mineure, journaliser l'erreur
+		eprintln('ERREUR MIGRATIONS: ${err}')
 	}
 	return repo
 }
@@ -57,6 +57,10 @@ fn (mut r Repository) init_tables() ! {
 		create table models.Organization
 		create table models.LeaveBalance
 	}!
+
+	// Les tables de sécurité (permission, role_permission, user_sso, sso_state)
+	// sont créées et seedées par la migration 014 — unique source de vérité
+	// (contraintes UNIQUE / FOREIGN KEY correctes pour ON CONFLICT).
 
 	// Auto-migrations pour faire évoluer le schéma PostgreSQL existant
 	r.db.exec('ALTER TABLE employee ADD COLUMN IF NOT EXISTS organization_id INT DEFAULT 1;') or {}
@@ -93,6 +97,10 @@ fn (mut r Repository) init_tables() ! {
 	// Pilier 1.2 — règles de carence & délai de déclaration du congé maladie par organisation (migration 013)
 	r.db.exec('ALTER TABLE organization ADD COLUMN IF NOT EXISTS leave_carence_days INT NOT NULL DEFAULT 3;') or {}
 	r.db.exec('ALTER TABLE organization ADD COLUMN IF NOT EXISTS leave_declaration_deadline_days INT NOT NULL DEFAULT 2;') or {}
+	// Pilier 3 — MFA TOTP sur le compte (migration 014)
+	r.db.exec("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS mfa_secret TEXT DEFAULT '';") or {}
+	r.db.exec('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN DEFAULT FALSE;') or {}
+	r.db.exec("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT DEFAULT '';") or {}
 }
 
 // run_migrations applique les scripts SQL versionnés depuis le dossier spécifié.

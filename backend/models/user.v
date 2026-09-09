@@ -9,8 +9,12 @@ pub:
 	organization_id int @[default: 1]
 	username        string @[unique]
 	password_hash   string
-	role            string // chaîne 'admin' | 'payroll_officer' | 'accountant' | 'employee'
+	role            string // chaîne 'admin' | 'payroll_officer' | 'accountant' | 'manager' | 'employee'
 	email           string
 	is_active       bool @[default: true]
-	created_at      ?time.Time
+	// Pilier 3 — MFA TOTP
+	mfa_secret       string @[default: '']
+	mfa_enabled      bool   @[default: false]
+	mfa_backup_codes string @[default: '']
+	created_at       ?time.Time
 }

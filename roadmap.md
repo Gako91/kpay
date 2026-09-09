@@ -93,24 +93,24 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 
 ### 3.1 RBAC Avancé
 
-- [ ] Table `permission` + `role_permission` (granularité par action, pas seulement par rôle)
-  - [ ] Rôles : Admin, Gestionnaire RH, Comptable, Manager, Employé
-  - [ ] Permissions type : `payslip.read.self` / `payslip.read.all`, `leave.approve.mgr` / `leave.approve.rh`, `payroll.run`, `tax_rule.manage`, `user.manage`
-- [ ] Middleware `require_permission('payroll.run')` dans le router (rendu plus souple que `has_role`)
-- [ ] Administration des rôles : `GET/POST/PUT /admin/roles`, `GET/POST/PUT /admin/roles/:id/permissions`
-- [ ] Page frontend « Rôles & permissions »
+- [x] Table `permission` + `role_permission` (granularité par action, pas seulement par rôle)
+  - [x] Rôles : Admin, Gestionnaire RH, Comptable, Manager, Employé
+  - [x] Permissions type : `payslip.read.self` / `payslip.read.all`, `leave.approve.mgr` / `leave.approve.rh`, `payroll.run`, `tax_rule.manage`, `user.manage`
+- [x] Middleware `require_permission('payroll.run')` dans le router (rendu plus souple que `has_role`)
+- [x] Administration des rôles : `GET /admin/permissions`, `GET /admin/roles`, `PUT /admin/roles/:role/permissions`
+- [x] Page frontend « Rôles & permissions »
 
 ### 3.2 Authentification Avancée
 
-- [ ] **MFA TOTP**
-  - [ ] Enrôlement : `POST /mfa/enroll` (secret + QR code), `POST /mfa/verify` (code TOTP)
-  - [ ] Login en 2 étapes : `POST /auth/login` → `challenge: 'totp'` → `POST /auth/login/mfa`
-  - [ ] Code de secours (backup codes) + révocation
-- [ ] **SSO OAuth2 / OIDC**
-  - [ ] Dépendance V compatible OIDC (ou implémentation minimale Authorization Code + PKCE)
-  - [ ] Fournisseurs : Microsoft 365, Google Workspace, Keycloak (issuer/audience/claims configurables)
-  - [ ] Lien compte externe ↔ utilisateur KPay (email match strict)
-  - [ ] Page frontend « Sécurité » : activer MFA, connecter un fournisseur SSO
+- [x] **MFA TOTP**
+  - [x] Enrôlement : `POST /mfa/enroll` (secret + QR code), `POST /mfa/verify` (code TOTP)
+  - [x] Login en 2 étapes : `POST /auth/login` → `challenge: 'totp'` → `POST /auth/login/mfa`
+  - [x] Code de secours (backup codes) + révocation
+- [x] **SSO OAuth2 / OIDC**
+  - [x] Dépendance V compatible OIDC (ou implémentation minimale Authorization Code + PKCE)
+  - [x] Fournisseurs : Microsoft 365, Google Workspace, Keycloak (issuer/audience/claims configurables)
+  - [x] Lien compte externe ↔ utilisateur KPay (email match strict)
+  - [x] Page frontend « Sécurité » : activer MFA, connecter un fournisseur SSO
 
 ---
 
@@ -172,6 +172,6 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 | Phase 0 — Socle multi-tenant complet | P0 | — |
 | Pilier 1 — ESS & congés | P1 | Phase 0 (tenants), jungle relation manager |
 | Pilier 2 — Moteur de règles | P1 | Phase 0 (règles scoped par org) |
-| Pilier 3 — RBAC fin + MFA/SSO | P2 | Phase 0 |
+| Pilier 3 — RBAC fin + MFA/SSO | P1 | Phase 0 (✅ — RBAC fin + MFA TOTP + SSO OIDC livrés, effet immédiat sur permissions) |
 | Pilier 4 — Async + SSE | P2 | Pilier 2 (détermination du net en batch) |
 | Pilier 5 — Déclaratifs & paiements | P3 | Pilier 2 (taux historisés), Pilier 4 (paiement en masse) |

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -200,5 +200,59 @@ export class ApiService {
 
     updateOrgLeaveSettings(input: OrgLeaveSettingsInput): Observable<{ success: boolean; data: string; message: string }> {
         return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/org-settings`, input);
+    }
+
+    // --- MFA TOTP + SSO (Pilier 3) ---
+    getMfaStatus(): Observable<MfaStatus> {
+        return this.http.get<MfaStatus>(`${this.baseUrl}/mfa/status`);
+    }
+
+    enrollMfa(): Observable<MfaEnrollResponse> {
+        return this.http.post<MfaEnrollResponse>(`${this.baseUrl}/mfa/enroll`, {});
+    }
+
+    verifyMfa(code: string): Observable<{ success: boolean; message: string }> {
+        return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/mfa/verify`, { code });
+    }
+
+    disableMfa(password: string): Observable<{ success: boolean; message: string }> {
+        return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/mfa/disable`, { password });
+    }
+
+    getSsoConfig(): Observable<SsoConfig> {
+        return this.http.get<SsoConfig>(`${this.baseUrl}/auth/sso/config`);
+    }
+
+    getMySsoLinks(): Observable<UserSsoLink[]> {
+        return this.http.get<UserSsoLink[]>(`${this.baseUrl}/me/sso`);
+    }
+
+    deleteMySsoLink(id: number): Observable<{ success: boolean; message: string }> {
+        return this.http.delete<{ success: boolean; message: string }>(`${this.baseUrl}/me/sso/${id}`);
+    }
+
+    // --- RBAC (Pilier 3) ---
+    getPermissions(): Observable<Permission[]> {
+        return this.http.get<Permission[]>(`${this.baseUrl}/admin/permissions`);
+    }
+
+    getRoles(): Observable<RoleWithPermissions[]> {
+        return this.http.get<RoleWithPermissions[]>(`${this.baseUrl}/admin/roles`);
+    }
+
+    updateRolePermissions(role: string, permissions: string[]): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/roles/${role}/permissions`, { permissions });
+    }
+
+    getUsers(): Observable<PageResponse<User>> {
+        return this.http.get<PageResponse<User>>(`${this.baseUrl}/admin/users`);
+    }
+
+    createUser(input: UserCreateInput): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/users`, input);
+    }
+
+    updateUser(id: number, input: UserUpdateInput): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/users/${id}`, input);
     }
 }

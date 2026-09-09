@@ -2,7 +2,7 @@ export interface User {
     id: number;
     organization_id: number;
     username: string;
-    role: 'admin' | 'payroll_officer' | 'accountant' | 'employee';
+    role: 'admin' | 'payroll_officer' | 'accountant' | 'manager' | 'employee';
     email: string;
     is_active: boolean;
     created_at?: string;
@@ -109,11 +109,59 @@ export interface AuthResponse {
     role: string;
     org: number;
     expires: string;
+    challenge?: string;   // 'totp' si le MFA est requis en 2e étape
+    mfa_token?: string;   // token court de la 2e étape
 }
 
 export interface LoginRequest {
     username: string;
     password: string;
+}
+
+// --- Sécurité (Pilier 3 — MFA TOTP + SSO OIDC) ---
+export interface MfaLoginRequest {
+    mfa_token: string;
+    code: string;
+}
+
+export interface MfaEnrollResponse {
+    secret: string;
+    otpauth_uri: string;
+    backup_codes: string[];
+}
+
+export interface MfaStatus {
+    enabled: boolean;
+    backup_codes_count: number;
+}
+
+export interface SsoConfig {
+    enabled: boolean;
+    issuer: string;
+    client_id: string;
+    redirect_uri: string;
+    scopes: string;
+}
+
+export interface UserSsoLink {
+    id: number;
+    user_id: number;
+    provider: string;
+    external_sub: string;
+    email: string;
+}
+
+// --- RBAC (Pilier 3) ---
+export interface Permission {
+    code: string;
+    label: string;
+    module_name: string;
+}
+
+export interface RoleWithPermissions {
+    role: string;
+    permissions: string[];
+    builtin: boolean;
 }
 
 // --- Règles sociales (Pilier 2.2 — moteur de règles fiscales dynamiques) ---
@@ -180,4 +228,25 @@ export interface OrgLeaveSettings {
 export interface OrgLeaveSettingsInput {
     carence_days: number;
     deadline_days: number;
+}
+
+// --- Gestion des comptes (Pilier 3 — user.manage) ---
+export interface UserCreateInput {
+    username: string;
+    password: string;
+    email: string;
+    role: string;
+}
+
+export interface UserUpdateInput {
+    role: string;
+    is_active: boolean;
+}
+
+export interface PageResponse<T> {
+    data: T[];
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
 }

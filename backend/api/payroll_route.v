@@ -82,6 +82,10 @@ pub fn (mut app App) mark_payslip_paid(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
+	if !ctx.has_permission('payslip.manage') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission requise: payslip.manage'))
+	}
 	dto.validate_id(id, 'payslip_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
@@ -236,6 +240,10 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	if !ctx.has_permission('payroll.run') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission requise: payroll.run'))
 	}
 	body := ctx.req.data
 	req := json2.decode[dto.PayrollRunRequest](body) or {

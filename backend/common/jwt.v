@@ -18,7 +18,7 @@ pub mut:
 }
 
 // base64url_encode encode des bytes en base64url sans padding (=).
-fn base64url_encode(data []u8) string {
+pub fn base64url_encode(data []u8) string {
 	mut s := base64.url_encode(data).replace('=', '')
 	return s
 }
@@ -85,6 +85,32 @@ pub fn verify_jwt(token string, secret string) !JwtClaims {
 	}
 
 	return claims
+}
+
+// url_encode encode en pourcent une chaîne pour l'utilisation dans une requête HTTP.
+fn url_encode_impl(s string) string {
+	mut out := ''
+	for c in s {
+		if (c >= `A` && c <= `Z`) || (c >= `a` && c <= `z`) || (c >= `0` && c <= `9`) || c == `-`
+			|| c == `.` || c == `_` || c == `~` {
+			out += c.str()
+		} else {
+			bytes := c.str().bytes()
+			for b in bytes {
+				out += '%'
+				out += hex_chars[b >> 4].str()
+				out += hex_chars[b & 0x0f].str()
+			}
+		}
+	}
+	return out
+}
+
+const hex_chars = '0123456789ABCDEF'
+
+// url_encode encode une chaîne en pourcent-encoding (RFC 3986) pour les paramètres de requête.
+pub fn url_encode(s string) string {
+	return url_encode_impl(s)
 }
 
 // sign_hs256 signe une chaîne avec HMAC-SHA256 puis base64url.

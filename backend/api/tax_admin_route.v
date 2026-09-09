@@ -43,6 +43,10 @@ pub fn (mut app App) create_admin_tax_component(mut ctx Context) veb.Result {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
+	if !ctx.has_permission('tax_rule.manage') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission requise: tax_rule.manage'))
+	}
 	body := ctx.req.data
 	decoded := json2.decode[models.TaxComponent](body) or {
 		ctx.res.set_status(.bad_request)
@@ -78,6 +82,10 @@ pub fn (mut app App) update_admin_tax_component(mut ctx Context, id int) veb.Res
 	if !ctx.has_role(['admin', 'accountant']) {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	if !ctx.has_permission('tax_rule.manage') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission requise: tax_rule.manage'))
 	}
 	dto.validate_id(id, 'tax_component_id') or {
 		ctx.res.set_status(.bad_request)
@@ -131,6 +139,10 @@ pub fn (mut app App) create_admin_tax_bracket(mut ctx Context) veb.Result {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
+	if !ctx.has_permission('tax_rule.manage') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission requise: tax_rule.manage'))
+	}
 	body := ctx.req.data
 	decoded := json2.decode[models.TaxBracket](body) or {
 		ctx.res.set_status(.bad_request)
@@ -167,6 +179,10 @@ pub fn (mut app App) update_admin_tax_bracket(mut ctx Context, id int) veb.Resul
 	if !ctx.has_role(['admin', 'accountant']) {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	if !ctx.has_permission('tax_rule.manage') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission requise: tax_rule.manage'))
 	}
 	dto.validate_id(id, 'tax_bracket_id') or {
 		ctx.res.set_status(.bad_request)
