@@ -30,15 +30,19 @@ import { AuthService } from '../../core/services/auth.service';
               Tableau de bord
             </a>
 
-            <a routerLink="/employees" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-              Employés
-            </a>
+            @if (canViewEmployees()) {
+              <a routerLink="/employees" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                Employés
+              </a>
+            }
 
-            <a routerLink="/payroll" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-              Gestion de la Paie
-            </a>
+            @if (canViewPayroll()) {
+              <a routerLink="/payroll" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                Gestion de la Paie
+              </a>
+            }
 
             <a routerLink="/leaves" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -55,10 +59,12 @@ import { AuthService } from '../../core/services/auth.service';
               Mon profil
             </a>
 
-            <a routerLink="/profile-changes" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-              Validations profil
-            </a>
+            @if (canViewProfileChanges()) {
+              <a routerLink="/profile-changes" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                Validations profil
+              </a>
+            }
 
             @if (isTaxRulesVisible()) {
               <a routerLink="/admin/tax-rules" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
@@ -138,9 +144,25 @@ export class LayoutComponent {
         return role === 'admin' || role === 'accountant';
     }
 
-    canManageSettings(): boolean {
+    private hasRole(...roles: string[]): boolean {
         const role = this.authService.currentUser()?.role || '';
-        return role === 'admin' || role === 'payroll_officer';
+        return roles.includes(role);
+    }
+
+    canViewEmployees(): boolean {
+        return this.hasRole('admin', 'payroll_officer', 'accountant');
+    }
+
+    canViewPayroll(): boolean {
+        return this.hasRole('admin', 'payroll_officer', 'accountant');
+    }
+
+    canViewProfileChanges(): boolean {
+        return this.hasRole('admin', 'payroll_officer');
+    }
+
+    canManageSettings(): boolean {
+        return this.hasRole('admin', 'payroll_officer');
     }
 
     isAdmin(): boolean {

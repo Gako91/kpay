@@ -11,6 +11,10 @@ import time
 // calculate_payroll POST /payroll/calculate
 @['/payroll/calculate'; post]
 pub fn (app &App) calculate_payroll(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	body := ctx.req.data
 	req := json2.decode[dto.PayrollRequest](body) or {
 		ctx.res.set_status(.bad_request)
@@ -181,6 +185,10 @@ pub fn (mut app App) reject_payslip(mut ctx Context, id int) veb.Result {
 // GET /payslips/:id - Consultation d'un bulletin de paie
 @['/payslips/:id']
 pub fn (app &App) get_payslip(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'payslip_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
@@ -195,6 +203,10 @@ pub fn (app &App) get_payslip(mut ctx Context, id int) veb.Result {
 // GET /payslips - Liste des bulletins, filtrables par période (période courante par défaut)
 @['/payslips']
 pub fn (app &App) list_payslips(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	month := if ctx.query['month'].len > 0 {
 		ctx.query['month'].int()
 	} else {
@@ -212,6 +224,10 @@ pub fn (app &App) list_payslips(mut ctx Context) veb.Result {
 // GET /employees/:id/payslips - Historique des bulletins d'un employé
 @['/employees/:id/payslips']
 pub fn (app &App) get_employee_payslips(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'employee_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
@@ -227,6 +243,10 @@ pub fn (app &App) get_employee_payslips(mut ctx Context, id int) veb.Result {
 // GET /payslips/:id/pdf - Téléchargement du bulletin de paie au format PDF
 @['/payslips/:id/pdf']
 pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'payslip_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
@@ -275,6 +295,10 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 // GET /exports/employees/csv - Exporter les employés au format CSV
 @['/exports/employees/csv']
 pub fn (app &App) export_employees_csv_endpoint(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	employees := app.employee_svc.get_all(ctx.user_org)
 	csv_content := services.generate_employees_csv(employees)
 	ctx.res.header.set(.content_type, 'text/csv; charset=utf-8')
@@ -284,6 +308,10 @@ pub fn (app &App) export_employees_csv_endpoint(mut ctx Context) veb.Result {
 // GET /exports/sepa - Générer le fichier de virement SEPA XML
 @['/exports/sepa']
 pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	employees := app.employee_svc.get_all(ctx.user_org)
 	// Anomalie RIB : demandes IBAN/BIC en attente de validation RH (signalées dans le virement)
 	pending_rib := app.repo.get_pending_rib_changes(ctx.user_org)
@@ -309,6 +337,10 @@ pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
 // GET /payroll/book - Livre de Paie mensuel au format JSON
 @['/payroll/book']
 pub fn (app &App) get_payroll_book_json(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	month := ctx.query['month'] or { '9' }.int()
 	year := ctx.query['year'] or { '2026' }.int()
 
@@ -319,6 +351,10 @@ pub fn (app &App) get_payroll_book_json(mut ctx Context) veb.Result {
 // GET /payroll/book/csv - Livre de Paie mensuel au format CSV
 @['/payroll/book/csv']
 pub fn (app &App) get_payroll_book_csv(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	month := ctx.query['month'] or { '9' }.int()
 	year := ctx.query['year'] or { '2026' }.int()
 
@@ -333,6 +369,10 @@ pub fn (app &App) get_payroll_book_csv(mut ctx Context) veb.Result {
 // GET /payroll/book/pdf - Livre de Paie mensuel au format PDF récapitulatif
 @['/payroll/book/pdf']
 pub fn (app &App) get_payroll_book_pdf(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	month := ctx.query['month'] or { '9' }.int()
 	year := ctx.query['year'] or { '2026' }.int()
 

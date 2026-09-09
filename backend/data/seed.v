@@ -7,7 +7,7 @@ import services
 import os
 import time
 
-// Seed des données initiales via le Repository
+// seed_data seed des données initiales via le Repository
 pub fn seed_data(mut repo repository.Repository) ! {
 	seed_platform_org(mut repo)!
 	seed_admin_user(mut repo)!

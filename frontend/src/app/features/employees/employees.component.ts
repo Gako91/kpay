@@ -159,9 +159,9 @@ export class EmployeesComponent implements OnInit {
         if (!this.newEmployee.first_name || !this.newEmployee.last_name) return;
 
         this.apiService.createEmployee(this.newEmployee).subscribe({
-            next: (emp) => {
-                this.employees.update((list) => [...list, emp]);
+            next: () => {
                 this.closeModal();
+                this.loadEmployees();
             },
             error: () => {
                 this.errorMessage.set('Erreur lors de la création de l\'employé. Vérifiez vos informations.');

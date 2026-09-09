@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput } from '../models/kpay.models';
 
 @Injectable({
@@ -13,7 +14,7 @@ export class ApiService {
 
     // --- Employees ---
     getEmployees(): Observable<Employee[]> {
-        return this.http.get<Employee[]>(`${this.baseUrl}/employees`);
+        return this.http.get<PageResponse<Employee>>(`${this.baseUrl}/employees`).pipe(map((r) => r.data));
     }
 
     getEmployeeById(id: number): Observable<Employee> {

@@ -9,6 +9,10 @@ import time
 // GET /employees?page=1&limit=50 - Liste paginée des employés
 @['/employees']
 pub fn (app &App) get_employees(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	page := if ctx.query['page'].len > 0 { ctx.query['page'].int() } else { 1 }
 	if page < 1 {
 		ctx.res.set_status(.bad_request)
@@ -33,6 +37,10 @@ pub fn (app &App) get_employees(mut ctx Context) veb.Result {
 // GET /employees/:id
 @['/employees/:id']
 pub fn (app &App) get_employee(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'employee_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))

@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Employee, Payslip } from '../../core/models/kpay.models';
 
 @Component({
@@ -24,18 +25,20 @@ import { Employee, Payslip } from '../../core/models/kpay.models';
 
       <!-- Métriques KPIs -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="kpi-card">
-          <div class="flex items-center justify-between">
-            <span class="kpi-label">Employés actifs</span>
-            <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        @if (canViewOrg()) {
+          <div class="kpi-card">
+            <div class="flex items-center justify-between">
+              <span class="kpi-label">Employés actifs</span>
+              <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <p class="kpi-value">{{ activeEmployees().length }}</p>
+            <p class="mt-1 text-xs text-slate-400">{{ employees().length - activeEmployees().length }} inactif(s)</p>
           </div>
-          <p class="kpi-value">{{ activeEmployees().length }}</p>
-          <p class="mt-1 text-xs text-slate-400">{{ employees().length - activeEmployees().length }} inactif(s)</p>
-        </div>
+        }
 
         <div class="kpi-card">
           <div class="flex items-center justify-between">
-            <span class="kpi-label">Bulletins ce mois</span>
+            <span class="kpi-label">{{ canViewOrg() ? 'Bulletins ce mois' : 'Mes bulletins' }}</span>
             <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           </div>
           <p class="kpi-value">{{ payslips().length }}</p>
@@ -62,22 +65,25 @@ import { Employee, Payslip } from '../../core/models/kpay.models';
       </div>
 
       <!-- Actions Rapides -->
-      <div class="card p-5 flex flex-wrap items-center justify-between gap-4">
-        <h2 class="card-title">Actions rapides</h2>
-        <div class="flex flex-wrap gap-2">
-          <a routerLink="/employees" class="btn btn-secondary">
-            Gérer les employés
-          </a>
-          <a routerLink="/payroll" class="btn btn-primary">
-            Lancer un calcul de paie
-          </a>
+      @if (canViewOrg()) {
+        <div class="card p-5 flex flex-wrap items-center justify-between gap-4">
+          <h2 class="card-title">Actions rapides</h2>
+          <div class="flex flex-wrap gap-2">
+            <a routerLink="/employees" class="btn btn-secondary">
+              Gérer les employés
+            </a>
+            <a routerLink="/payroll" class="btn btn-primary">
+              Lancer un calcul de paie
+            </a>
+          </div>
         </div>
-      </div>
+      }
     </div>
   `
 })
 export class DashboardComponent implements OnInit {
     private apiService = inject(ApiService);
+    private authService = inject(AuthService);
 
     employees = signal<Employee[]>([]);
     payslips = signal<Payslip[]>([]);
@@ -87,7 +93,22 @@ export class DashboardComponent implements OnInit {
         this.loadData();
     }
 
+    canViewOrg(): boolean {
+        const role = this.authService.currentUser()?.role || '';
+        return role === 'admin' || role === 'payroll_officer' || role === 'accountant';
+    }
+
     loadData(): void {
+        if (!this.canViewOrg()) {
+            this.apiService.getMyPayslips().subscribe({
+                next: (data) => this.payslips.set(data),
+                error: () => {
+                    this.payslips.set([]);
+                    this.errorMessage.set('Impossible de charger vos bulletins.');
+                }
+            });
+            return;
+        }
         this.apiService.getEmployees().subscribe({
             next: (data) => this.employees.set(data),
             error: (err) => {
