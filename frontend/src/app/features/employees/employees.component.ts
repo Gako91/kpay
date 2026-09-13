@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Employee } from '../../core/models/kpay.models';
 
 @Component({
@@ -17,9 +18,11 @@ import { Employee } from '../../core/models/kpay.models';
           <h1 class="page-title">Gestion des Employés</h1>
           <p class="page-subtitle">Consultez et gérez les fiches des salariés de l'organisation.</p>
         </div>
-        <button (click)="openModal()" class="btn btn-primary">
-          + Nouvel Employé
-        </button>
+        @if (canCreateEmployee()) {
+          <button (click)="openModal()" class="btn btn-primary">
+            + Nouvel Employé
+          </button>
+        }
       </div>
 
       <!-- Tableau des Employés -->
@@ -82,6 +85,26 @@ import { Employee } from '../../core/models/kpay.models';
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
+                  <label class="label">Téléphone</label>
+                  <input type="tel" [(ngModel)]="newEmployee.phone" name="phone" class="input" placeholder="+225 07 00 00 00 00"/>
+                </div>
+                <div>
+                  <label class="label">Adresse</label>
+                  <input type="text" [(ngModel)]="newEmployee.address" name="address" class="input" placeholder="Cocody, Abidjan"/>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="label">IBAN</label>
+                  <input type="text" [(ngModel)]="newEmployee.iban" name="iban" class="input" placeholder="CI93 0100 0100 1234 5678 9012 34"/>
+                </div>
+                <div>
+                  <label class="label">BIC (banque)</label>
+                  <input type="text" [(ngModel)]="newEmployee.bic" name="bic" class="input" placeholder="BNFACIXX"/>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
                   <label class="label">Parts Fiscales (IGR)</label>
                   <input type="number" step="0.5" [(ngModel)]="newEmployee.tax_parts" name="taxParts" required class="input"/>
                 </div>
@@ -108,16 +131,26 @@ import { Employee } from '../../core/models/kpay.models';
 })
 export class EmployeesComponent implements OnInit {
     private apiService = inject(ApiService);
+    private authService = inject(AuthService);
 
     employees = signal<Employee[]>([]);
     employeesById = signal<Map<number, string>>(new Map());
     showModal = signal(false);
     errorMessage = signal('');
 
+    canCreateEmployee(): boolean {
+        const role = this.authService.currentUser()?.role || '';
+        return role === 'admin' || role === 'payroll_officer';
+    }
+
     newEmployee: Partial<Employee> = {
         first_name: '',
         last_name: '',
         email: '',
+        phone: '',
+        address: '',
+        iban: '',
+        bic: '',
         tax_parts: 1.0,
         manager_id: null as unknown as number,
         is_active: true

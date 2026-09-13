@@ -10,6 +10,16 @@ import pdf
 
 // ==================== HELPERS PDF ====================
 
+// Hauteur d'une page A4 standard en millimètres.
+// Le framework pdf place l'origine (0,0) en haut à gauche de la page, y croissant
+// vers le bas. Les ordonnées des générateurs ci-dessous sont écrites « depuis le bas »
+// (lecture RH classique) : top_y() convertit en distance depuis le haut au moment de l'écriture.
+const pdf_a4_h_mm = 297.0
+
+fn top_y(bottom_y f32) f32 {
+	return pdf_a4_h_mm - bottom_y
+}
+
 // format_fcfa formate un montant en FCFA avec séparateurs de milliers.
 // Les montants du projet sont stockés directement en FCFA (ex: 400000 = 400 000 FCFA).
 pub fn format_fcfa(amount i64) string {
@@ -319,46 +329,46 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	}
 
 	// ==================== 1. EN-TETE SOCIETE & TITRE ====================
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('KPAY PAYROLL SERVICES', 15, 282, company_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Systeme de Gestion & Paie Haute Performance', 15, 276, footer_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Abidjan - Cote d Ivoire', 15, 271, footer_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('KPAY PAYROLL SERVICES', 15, top_y(282), company_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Systeme de Gestion & Paie Haute Performance', 15, top_y(276), footer_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Abidjan - Cote d Ivoire', 15, top_y(271), footer_fnt))
 
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('BULLETIN DE PAIE', 125, 280, title_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Periode : ${p.period_start.format_ss()} au ${p.period_end.format_ss()}', 125, 273, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('BULLETIN DE PAIE', 125, top_y(280), title_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Periode : ${p.period_start.format_ss()} au ${p.period_end.format_ss()}', 125, top_y(273), body_bold))
 
 	// ==================== 2. BLOCS INFORMATIONS (SOCIETE & SALARIE) ====================
 	// Bloc Employeur (gauche)
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Convention : INTERPROFESSIONNELLE', 15, 260, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N C.C. / RCCM : CI-ABJ-03-2024-B12', 15, 254, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N CNPS Employeur : 12345678', 15, 248, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Horaire mensuel : 173.33 h', 15, 242, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Convention : INTERPROFESSIONNELLE', 15, top_y(260), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N C.C. / RCCM : CI-ABJ-03-2024-B12', 15, top_y(254), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N CNPS Employeur : 12345678', 15, top_y(248), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Horaire mensuel : 173.33 h', 15, top_y(242), body_fnt))
 
 	// Bloc Salarié (droite)
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Matricule : EMP-${emp.id:04d}', 115, 260, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Matricule : EMP-${emp.id:04d}', 115, top_y(260), header_fnt))
 	full_name := sanitize_pdf_text('${emp.first_name.to_upper()} ${emp.last_name.to_upper()}')
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nom & Prenoms : ${full_name}', 115, 254, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Email : ${emp.email}', 115, 248, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nom & Prenoms : ${full_name}', 115, top_y(254), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Email : ${emp.email}', 115, top_y(248), body_fnt))
 	iban_str := if emp.iban.len > 0 { emp.iban } else { 'N/A' }
 	bic_str := if emp.bic.len > 0 { emp.bic } else { 'N/A' }
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Paiement : Virement (${iban_str} / ${bic_str})', 115, 242, body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Paiement : Virement (${iban_str} / ${bic_str})', 115, top_y(242), body_fnt))
 
 	// ==================== 3. TABLEAU DES RUBRIQUES ====================
 	mut table_y := f32(230.0)
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N', 15, table_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Designation', 25, table_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nombre/Base', 95, table_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Gain / Brut', 125, table_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenue Sal.', 148, table_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Taux Patr.', 172, table_y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenue Patr.', 188, table_y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N', 15, top_y(table_y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Designation', 25, top_y(table_y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nombre/Base', 95, top_y(table_y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Gain / Brut', 125, top_y(table_y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenue Sal.', 148, top_y(table_y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Taux Patr.', 172, top_y(table_y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenue Patr.', 188, top_y(table_y), header_fnt))
 
 	table_y -= 8.0
 
 	// Ligne Salaire de base
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('100', 15, table_y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('SALAIRE DE BASE', 25, table_y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('30.00 j / 173.33 h', 95, table_y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(p.gross_amount), 125, table_y, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('100', 15, top_y(table_y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('SALAIRE DE BASE', 25, top_y(table_y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('30.00 j / 173.33 h', 95, top_y(table_y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(p.gross_amount), 125, top_y(table_y), body_bold))
 	table_y -= 6.0
 
 	// Lignes de Cotisations
@@ -403,12 +413,12 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	// ==================== 3.b SOLDES DE CONGES (post-calcul, année de la période) ====================
 	if balances.len > 0 {
 		sub -= 4.0
-		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('SOLDES DE CONGES (annee ${p.period_start.year})', 15, sub, header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('SOLDES DE CONGES (annee ${p.period_start.year})', 15, top_y(sub), header_fnt))
 		sub -= 6.0
-		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Type', 25, sub, header_fnt))
-		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Acquis (j)', 110, sub, header_fnt))
-		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Utilises (j)', 145, sub, header_fnt))
-		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Restant (j)', 180, sub, header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Type', 25, top_y(sub), header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Acquis (j)', 110, top_y(sub), header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Utilises (j)', 145, top_y(sub), header_fnt))
+		doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Restant (j)', 180, top_y(sub), header_fnt))
 		sub -= 6.0
 		for b in balances {
 			if sub < 90.0 {
@@ -416,57 +426,57 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 				sub = 230.0
 			}
 			remaining := b.accrued_days - b.used_days
-			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(leave_balance_label(b.leave_type), 25, sub, body_fnt))
-			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${b.accrued_days:.1f}', 110, sub, body_fnt))
-			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${b.used_days:.1f}', 145, sub, body_fnt))
-			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${remaining:.1f}', 180, sub, body_bold))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(leave_balance_label(b.leave_type), 25, top_y(sub), body_fnt))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${b.accrued_days:.1f}', 110, top_y(sub), body_fnt))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${b.used_days:.1f}', 145, top_y(sub), body_fnt))
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('${remaining:.1f}', 180, top_y(sub), body_bold))
 			sub -= 6.0
 		}
 	}
 
 	// ==================== 4. TOTAUX & RECAPITULATIF ====================
 	totaux_y := f32(75.0)
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Total Brut', 15, totaux_y, header_fnt))
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cotis. Salariales', 55, totaux_y, header_fnt))
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cotis. Patronales', 100, totaux_y, header_fnt))
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cout Total Global', 145, totaux_y, header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Total Brut', 15, top_y(totaux_y), header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cotis. Salariales', 55, top_y(totaux_y), header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cotis. Patronales', 100, top_y(totaux_y), header_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('Cout Total Global', 145, top_y(totaux_y), header_fnt))
 
 	totaux_val_y := totaux_y - 6.0
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.gross_amount), 15, totaux_val_y, body_bold))
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.total_taxes), 55, totaux_val_y, body_bold))
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(total_patronal), 100, totaux_val_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.gross_amount), 15, top_y(totaux_val_y), body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.total_taxes), 55, top_y(totaux_val_y), body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(total_patronal), 100, top_y(totaux_val_y), body_bold))
 	total_global := p.gross_amount + total_patronal
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(total_global), 145, totaux_val_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(total_global), 145, top_y(totaux_val_y), body_bold))
 
 	// ==================== 5. ENCADRE NET A PAYER ====================
 	net_box_y := f32(45.0)
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('NET A PAYER', 145, net_box_y + 8.0, net_label_fnt))
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.net_amount), 145, net_box_y, net_val_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text('NET A PAYER', 145, top_y(net_box_y + 8.0), net_label_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_fcfa(p.net_amount), 145, top_y(net_box_y), net_val_fnt))
 
 	status_str := if p.is_paid { 'Statut : PAYE' } else { 'Statut : EN ATTENTE DE VIREMENT' }
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(status_str, 15, net_box_y, body_bold))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(status_str, 15, top_y(net_box_y), body_bold))
 
 	// ==================== 6. PIED DE PAGE LEGAL ====================
 	legal_text := 'Pour vous aider a faire valoir vos droits, conservez ce bulletin de paie sans limitation de duree.'
-	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(sanitize_pdf_text(legal_text), 15, 18, footer_fnt))
+	doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(sanitize_pdf_text(legal_text), 15, top_y(18), footer_fnt))
 
 	return doc.render()!
 }
 
 // draw_salari_row dessine une ligne de cotisation salariale (gain/base à gauche, retenue salariale).
 fn draw_salari_row(mut doc pdf.Pdf, page_idx int, code string, label string, gross i64, amount i64, y f32, body_fnt pdf.Text_params, body_bold pdf.Text_params) {
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(code, 15, y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 148, y, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(code, 15, top_y(y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, top_y(y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, top_y(y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 148, top_y(y), body_bold))
 }
 
 // draw_patronal_row dessine une ligne de cotisation patronale (retenue patronale à droite).
 fn draw_patronal_row(mut doc pdf.Pdf, page_idx int, code string, label string, gross i64, amount i64, y f32, body_fnt pdf.Text_params, body_bold pdf.Text_params) {
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(code, 15, y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, y, body_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 188, y, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(code, 15, top_y(y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, top_y(y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, top_y(y), body_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 188, top_y(y), body_bold))
 }
 
 // new_payslip_page crée une nouvelle page A4 pour le bulletin et répète les entêtes de colonnes.
@@ -477,11 +487,11 @@ fn new_payslip_page(mut doc pdf.Pdf, header_fnt pdf.Text_params) int {
 		compress: false
 	})
 	doc.page_list[new_idx].user_unit = pdf.mm_unit
-	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('N', 15, 230, header_fnt))
-	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Designation', 25, 230, header_fnt))
-	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Gain / Brut', 95, 230, header_fnt))
-	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Retenue Sal.', 148, 230, header_fnt))
-	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Retenue Patr.', 188, 230, header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('N', 15, top_y(230), header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Designation', 25, top_y(230), header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Gain / Brut', 95, top_y(230), header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Retenue Sal.', 148, top_y(230), header_fnt))
+	doc.page_list[new_idx].push_content(doc.page_list[new_idx].draw_base_text('Retenue Patr.', 188, top_y(230), header_fnt))
 	return new_idx
 }
 
@@ -580,17 +590,17 @@ pub fn generate_payroll_book_pdf(book dto.PayrollBookResponse) ![]u8 {
 	}
 
 	// En-tête
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('KPAY - JOURNAL & LIVRE DE PAIE', 15, 280, title_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Periode : ${book.month:02d}/${book.year}  |  Effectif traite : ${book.total_employees} salarie(s)', 15, 273, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('KPAY - JOURNAL & LIVRE DE PAIE', 15, top_y(280), title_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Periode : ${book.month:02d}/${book.year}  |  Effectif traite : ${book.total_employees} salarie(s)', 15, top_y(273), header_fnt))
 
 	// Entêtes de colonnes
 	mut y := f32(260.0)
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N', 15, y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Matricule', 25, y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nom & Prenoms', 52, y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Brut (FCFA)', 115, y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenues (FCFA)', 145, y, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Net a Payer (FCFA)', 175, y, header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('N', 15, top_y(y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Matricule', 25, top_y(y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Nom & Prenoms', 52, top_y(y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Brut (FCFA)', 115, top_y(y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Retenues (FCFA)', 145, top_y(y), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Net a Payer (FCFA)', 175, top_y(y), header_fnt))
 
 	y -= 7.0
 
@@ -599,24 +609,24 @@ pub fn generate_payroll_book_pdf(book dto.PayrollBookResponse) ![]u8 {
 		if y < 35.0 {
 			break
 		}
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('${item.payslip_id}', 15, y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(item.matricule), 25, y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(item.full_name), 52, y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.gross_amount), 115, y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.total_taxes), 145, y, body_fnt))
-		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.net_amount), 175, y, body_bold))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('${item.payslip_id}', 15, top_y(y), body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(item.matricule), 25, top_y(y), body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(item.full_name), 52, top_y(y), body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.gross_amount), 115, top_y(y), body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.total_taxes), 145, top_y(y), body_fnt))
+		doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(item.net_amount), 175, top_y(y), body_bold))
 
 		y -= 5.5
 	}
 
 	// Ligne de totalisation
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('MASSE SALARIALE GLOBALE', 52, y - 4, header_fnt))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_gross), 115, y - 4, body_bold))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_taxes), 145, y - 4, body_bold))
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_net), 175, y - 4, body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('MASSE SALARIALE GLOBALE', 52, top_y(y - 4), header_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_gross), 115, top_y(y - 4), body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_taxes), 145, top_y(y - 4), body_bold))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(book.total_net), 175, top_y(y - 4), body_bold))
 
 	// Pied de page
-	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Document comptable officiel et confidentiel genere automatiquement par KPay Payroll Engine.', 15, 15, footer_fnt))
+	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text('Document comptable officiel et confidentiel genere automatiquement par KPay Payroll Engine.', 15, top_y(15), footer_fnt))
 
 	return doc.render()!
 }

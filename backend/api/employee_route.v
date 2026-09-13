@@ -92,6 +92,12 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
+	// Auto-lien ESS : si un compte utilisateur actif possède cet email (même org),
+	// on associe le dossier employé pour permettre /me, /me/payslips, etc.
+	user := app.repo.get_user_by_email(ctx.user_org, emp.email) or { models.User{} }
+	if user.id > 0 {
+		app.repo.link_employee_to_user(new_id, user.id, ctx.user_org) or { _ := 0 }
+	}
 
 	ctx.res.set_status(.created)
 	app.audit_action(mut ctx, 'employee.create', 'employee', int(new_id), 'Création de ${emp.first_name} ${emp.last_name}')

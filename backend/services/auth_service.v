@@ -43,7 +43,9 @@ pub fn (s &AuthService) login(username string, password string) !dto.LoginRespon
 		return error('JWT secret non configuré')
 	}
 	user := s.repo.get_user_by_username(username) or {
-		return error('Identifiants invalides')
+		s.repo.get_user_by_username_ci(username) or {
+			return error('Identifiants invalides')
+		}
 	}
 	if !user.is_active {
 		return error('Compte désactivé')

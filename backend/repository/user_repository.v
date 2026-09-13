@@ -24,6 +24,20 @@ pub fn (r &Repository) get_user_by_username(username string) ?models.User {
 	return result[0]
 }
 
+// get_user_by_username_ci recherche un compte par username, insensible à la casse.
+// Utilisé en secours au login pour éviter les erreurs de casse (Eliya vs eliya).
+pub fn (r &Repository) get_user_by_username_ci(username string) ?models.User {
+	rows := sql r.db {
+		select from models.User
+	} or { return none }
+	for u in rows {
+		if u.username.to_lower() == username.to_lower() {
+			return u
+		}
+	}
+	return none
+}
+
 // get_user_by_email retrouve un compte actif par email dans une organisation (SSO strict).
 pub fn (r &Repository) get_user_by_email(org_id int, email string) ?models.User {
 	rows := sql r.db {
