@@ -1,35 +1,56 @@
-# Multi-stage Dockerfile pour KPay (Haute Performance Vlang)
-# Construction de V depuis le repository officiel pour garantir la version la plus récente (avec json2 et vpm)
-FROM alpine:3.20 AS builder
+# Multi-stage Dockerfile pour KPay
+# --- Stage 1 : Build ---
+# V 0.5.2 (commit 1ac8043, épinglé — cf. compose.yml context 'vlang' : /home/gnoboa/kpay-v)
+# est copié depuis l'environnement local (contexte 'vlang') au lieu d'être bootstrappé
+# dans le conteneur (bootstrap incompatible gcc récent).
+FROM debian:bookworm-slim AS builder
 
 WORKDIR /build
 
-# Dépendances système pour compiler V et le projet
-RUN apk add --no-cache git make gcc musl-dev postgresql-dev
+# Dépendances système pour compiler l'application avec V + GCC
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc libc6-dev libpq-dev git ca-certificates
+# libatomic : dépendance runtime du binaire V local
+RUN apt-get install -y --no-install-recommends libatomic1
 
-# Installation de la version à jour de Vlang
-RUN git clone --depth 1 https://github.com/vlang/v /opt/vlang \
-    && cd /opt/vlang \
-    && make \
-    && ./v symlink
+# Copie du compilateur V local (binaire + vlib) au MÊME chemin absolu que sur le host
+# (le binaire embauche /home/gnoboa/kpay-v/vlib/... pour ses fichiers pré-compilés)
+# La toolchain est épinglée au commit 1ac8043 (V 0.5.2, 13/09/2026) : le commit plus récent
+# 94a3a56 (16/09/2026) régresse le codegen -prod (panic "option/result propagation failed").
+RUN mkdir -p /home/gnoboa/kpay-v
+COPY --from=vlang /v /home/gnoboa/kpay-v/v
+COPY --from=vlang /v1_fallback /home/gnoboa/kpay-v/v1_fallback
+COPY --from=vlang /vlib /home/gnoboa/kpay-v/vlib
+COPY --from=vlang /thirdparty /home/gnoboa/kpay-v/thirdparty
+COPY --from=vlang /cmd /home/gnoboa/kpay-v/cmd
+COPY --from=vlang /vc /home/gnoboa/kpay-v/vc
+COPY --from=vlang /v.mod /home/gnoboa/kpay-v/v.mod
+ENV PATH="/home/gnoboa/kpay-v:${PATH}"
 
-# Installation du module externe pdf via v install
-RUN v install pdf
+RUN v version
+
+# Module externe pdf : copié depuis l'installation locale (vpm pré-compilé du host = GLIBC 2.38)
+RUN mkdir -p /root/.vmodules
+COPY --from=vmodules /pdf /root/.vmodules/pdf
 
 # Copie des fichiers sources du projet
 COPY . .
 
 # Compilation du binaire de production optimisé avec GCC
-RUN v -cc gcc -prod -o /build/kpay main.v
+# Attention : -prod SANS -g déclenche un bug de codegen V (panic "option/result propagation
+# propagation failed" au démarrage). Le -g est indispensable jusqu'au correctif upstream.
+RUN v -cc gcc -prod -g -o /build/kpay main.v
 
-# Image d'exécution finale ultra-légère
-FROM alpine:3.20
+# --- Stage 2 : Runtime (Debian glibc, compatible binaire PostgreSQL) ---
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Dépendances runtime (libc, libpq PostgreSQL)
-RUN apk add --no-cache libpq ca-certificates tzdata \
-    && mkdir -p /app/storage/payslips
+# Dépendances runtime (libpq, certs, fuseau, libatomic pour V)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 libatomic1 ca-certificates tzdata \
+    && mkdir -p /app/storage/payslips \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copie du binaire compilé et des fichiers nécessaires
 COPY --from=builder /build/kpay /app/kpay

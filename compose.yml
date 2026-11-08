@@ -3,6 +3,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      additional_contexts:
+        vlang: /home/gnoboa/kpay-v
+        vmodules: /home/gnoboa/.vmodules
+      tags:
+        - kpay-kpay
     ports:
       - "9199:9199"
     environment:
@@ -89,14 +94,16 @@ services:
       retries: 5
 
   createbuckets:
-    image: minio/mc:latest
+    # bitnami/minio-client a été retiré de Docker Hub (politique 2025) : l'org bitnamilegacy
+    # conserve les images libres. mc se trouve dans /opt/bitnami/minio-client/bin (sur le PATH).
+    image: bitnamilegacy/minio-client:latest
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/payslips --ignore-existing;
+      mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb myminio/payslips --ignore-existing;
       exit 0;
       "
 

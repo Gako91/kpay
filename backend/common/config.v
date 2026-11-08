@@ -78,10 +78,28 @@ pub fn load_dotenv(filepath string) {
 	}
 }
 
+// Recherche et charge le fichier .env : d'abord le CWD (backend/), puis les répertoires
+// parents jusqu'à 6 niveaux (le .env du projet racine quand on lance depuis backend/).
+fn load_dotenv_upwards() {
+	mut dir := os.getwd()
+	for _ in 0 .. 6 {
+		candidate := os.join_path(dir, '.env')
+		if os.exists(candidate) {
+			load_dotenv(candidate)
+			return
+		}
+		parent := os.dir(dir)
+		if parent == dir {
+			return
+		}
+		dir = parent
+	}
+}
+
 // load_config Charge la configuration depuis les variables d'environnement
 pub fn load_config() Config {
-	// Charger le fichier .env si présent
-	load_dotenv('.env')
+	// Charger le fichier .env si présent (CWD puis parents)
+	load_dotenv_upwards()
 
 	return Config{
 		port: os.getenv_opt('KPAY_PORT') or { '8080' }.int()
