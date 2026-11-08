@@ -120,22 +120,22 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 
 ### 4.1 File de Traitement Asynchrone
 
-- [ ] **Table `job`** : type, payload, status (pending | running | done | failed), progress, error, timestamps
-- [ ] **Queue Worker** (goroutine unique ou pool Go-backed dans le process V)
-  - [ ] `POST /payroll/run` crée un job au lieu de traiter en ligne
-  - [ ] Génération des bulletins en parallèle (fan-out par employé, réduction des temps pour des milliers d'employés)
-  - [ ] Relance / retry avec backoff exponentiel et dead-letter
-  - [ ] Scellement : si le job échoue à mi-chemin, les bulletins produits restent cohérents (transaction par lot)
-- [ ] **Surveillance** : `GET /jobs/:id`, `GET /jobs` (pagination), purge des jobs terminés
+- [x] **Table `job`** : type, payload, status (pending | running | done | failed), progress, error, timestamps
+- [x] **Queue Worker** (goroutine unique ou pool Go-backed dans le process V)
+  - [x] `POST /payroll/run` crée un job au lieu de traiter en ligne
+  - [x] Génération des bulletins en parallèle (fan-out par employé, réduction des temps pour des milliers d'employés)
+  - [x] Relance / retry avec backoff exponentiel et dead-letter
+  - [x] Scellement : si le job échoue à mi-chemin, les bulletins produits restent cohérents (transaction par lot)
+- [x] **Surveillance** : `GET /jobs/:id`, `GET /jobs` (pagination), purge des jobs terminés
 
 ### 4.2 Notifications & Suivi en Temps Réel
 
-- [ ] **Server-Sent Events (SSE)** — plus simple que WebSocket pour un sens unique
-  - [ ] Endpoint `GET /events/jobs/:id` (flux d'avancement : 0 % → 100 %, échec éventuel)
-  - [ ] Broadcast sur toutes les pages frontend via `EventSource`
-- [ ] **Frontend**
-  - [ ] Page « Paie » : barre de progression temps réel pendant `payroll/run`
-  - [ ] Toasts de notification à la fin d'un job (succès/échec)
+- [x] **Server-Sent Events (SSE)** — plus simple que WebSocket pour un sens unique
+  - [x] Endpoint `GET /events/jobs/:id` (flux d'avancement : 0 % → 100 %, échec éventuel)
+  - [x] Broadcast sur toutes les pages frontend via `EventSource`
+- [x] **Frontend**
+  - [x] Page « Paie » : barre de progression temps réel pendant `payroll/run`
+  - [x] Toasts de notification à la fin d'un job (succès/échec)
 
 ---
 

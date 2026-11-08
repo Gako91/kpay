@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -46,8 +46,33 @@ export class ApiService {
         return this.http.post<PayRun>(`${this.baseUrl}/payroll/calculate`, { employee_id: employeeId, month, year });
     }
 
-    runPayroll(month: number, year: number): Observable<{ success: boolean; count: number; payslips: Payslip[] }> {
-        return this.http.post<{ success: boolean; count: number; payslips: Payslip[] }>(`${this.baseUrl}/payroll/run`, { month, year });
+    runPayroll(month: number, year: number): Observable<JobRunResponse> {
+        return this.http.post<JobRunResponse>(`${this.baseUrl}/payroll/run`, { month, year });
+    }
+
+    // --- Jobs asynchrones (Pilier 4 : file de traitement + SSE) ---
+    getJob(jobId: number): Observable<Job> {
+        return this.http.get<Job>(`${this.baseUrl}/jobs/${jobId}`);
+    }
+
+    getJobs(page: number = 1, limit: number = 25): Observable<PageResponse<Job>> {
+        let params = new HttpParams().set('page', page).set('limit', limit);
+        return this.http.get<PageResponse<Job>>(`${this.baseUrl}/jobs`, { params });
+    }
+
+    retryJob(jobId: number): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/jobs/${jobId}/retry`, {});
+    }
+
+    purgeJobs(days: number = 30): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/jobs/purge?days=${days}`, {});
+    }
+
+    // URL du flux SSE temps réel de progression d'un job. EventSource ne gère pas
+    // les headers Authorization : le token JWT est passé en query param.
+    jobEventsUrl(jobId: number): string {
+        const token = localStorage.getItem('kpay_jwt_token') || '';
+        return `${this.baseUrl}/events/jobs/${jobId}?token=${encodeURIComponent(token)}`;
     }
 
     submitPayslip(payslipId: number): Observable<{ success: boolean; message: string }> {

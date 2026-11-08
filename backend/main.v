@@ -79,11 +79,28 @@ fn main() {
 	app.payroll_svc.set_mailer(mailer_svc)
 	app.leave_svc.set_mailer(mailer_svc)
 
+	// Pilier 4 — file de traitement asynchrone : queue mémoire + worker goroutine
+	job_queue := chan services.JobTask{
+		cap: 64
+	}
+	app.jobs_svc = services.new_job_worker(config, job_queue)
+	n_recovered := services.recover_pending_after_restart(mut app.repo, job_queue)
+	if n_recovered > 0 {
+		services.log_info("Jobs: ${n_recovered} paie(s) en attente replanifiée(s) au démarrage")
+	}
+	spawn services.run_job_worker(job_queue, config)
+	services.log_info('Worker de jobs démarré (backoff exponentiel, retry max 3)')
+
 	// Enregistrement du middleware de logging de requêtes puis d'authentification
 	app.use(handler: app.request_logger)
 	app.use(handler: app.auth_middleware)
 
-	data.seed_data(mut app.repo)!
+	// Erreur journalisée plutôt que propagée : la propagation `!` dans fn main déclenche
+	// "V panic: option/result propagation failed" (masque la vraie cause en build -prod).
+	data.seed_data(mut app.repo) or {
+		services.log_error('Seed initial échoué: ${err}')
+		return
+	}
 
 	services.log_info('Démarrage serveur sur le port ${config.port}...')
 	services.log_info('API disponible sur http://localhost:${config.port}')

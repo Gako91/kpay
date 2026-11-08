@@ -24,41 +24,114 @@ pub fn (mut s PayrollService) set_mailer(m MailerService) {
 	s.mailer = m
 }
 
-pub fn (mut s PayrollService) run_monthly_payroll(org_id int, month int, year int) ![]models.Payslip {
-	mut generated_payslips := []models.Payslip{}
+// EmpPayoutTask regroupe toutes les entrées nécessaires au calcul de paie d'un
+// seul employé. Les calculs sont de pures fonctions (fan-out) : chaque tâche est
+// indépendante et peut donc être exécutée en parallèle via `spawn`.
+struct EmpPayoutTask {
+	idx         int
+	emp_id      int
+	contract    models.Contract
+	adjustments []models.Adjustment
+	tax_parts   f32
+}
 
-	// 1. Récupérer tous les employés actifs de l'organisation
-	employees := s.repo.get_all_employees(org_id)
+// CalcOut achemine le résultat d'un calcul fan-out vers l'agrégateur.
+struct CalcOut {
+	idx    int
+	result core.CalculationResult
+}
 
-	// 2. Récupérer les cotisations de l'organisation.
-	//    Si des composantes sont configurées (moteur de règles dynamique), on les applique
-	//    telles qu'actives à la date de période ; sinon fallback sur le barème legacy.
+// payout_worker calcule la paie d'un employé (fonction pure) et pousse le résultat
+// dans le canal partagé. Eff_components/eff_brackets/rules sont en lecture seule,
+// sélectionnées une seule fois dans `run_and_save_monthly_payroll`.
+fn payout_worker(ch chan CalcOut, task EmpPayoutTask, use_config bool, eff_components []models.TaxComponent, eff_brackets []models.TaxBracket, rules []models.TaxRule) {
+	mut result := core.CalculationResult{}
+	if use_config {
+		result = core.compute_payslip_configurable(task.contract, eff_components, eff_brackets, task.adjustments,
+			task.tax_parts)
+	} else {
+		result = core.calculate_pay_full_ci(task.contract, rules, task.adjustments, task.tax_parts)
+	}
+	ch <- CalcOut{
+		idx: task.idx
+		result: result
+	}
+}
+
+// run_and_save_monthly_payroll Génère puis sauvegarde les bulletins de paie du mois d'une organisation.
+// Le calcul de chaque bulletin est une fonction pure exécutée en parallèle (fan-out) ;
+// les insertions restent séquentielles et transactionnelles : en cas d'erreur partielle,
+// aucun bulletin n'est persisté (pas de paie incomplète en base).
+// Une exécution déjà effectuée pour la même période est refusée (idempotence).
+// Le callback `progress` (optionnel) reçoit la progression 0-100 du job (Pilier 4 : SSE).
+pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int, year int, progress fn (int)) ![]models.Payslip {
+	if progress != unsafe { nil } {
+		progress(2)
+	}
+	// Idempotence : refuser si la paie de cette période a déjà été générée
+	if s.repo.exists_payslip_for_period(month, year, org_id) {
+		if progress != unsafe { nil } {
+			progress(100)
+		}
+		return error('La paie de ${month}/${year} a déjà été générée. Utilisez la correction de bulletin si nécessaire.')
+	}
+
+	period_date := '${year:04d}-${month:02d}-01'
+
+	// 1. Récupérer les données partagées (cotisations, barèmes)
 	rules := s.repo.get_tax_rules('CI', org_id)
 	components := s.repo.get_components(org_id)
 	brackets := s.repo.get_brackets(org_id)
-	period_date := '${year:04d}-${month:02d}-01'
+	use_config := components.len > 0
+	mut eff_components := []models.TaxComponent{}
+	mut eff_brackets := []models.TaxBracket{}
+	if use_config {
+		eff_components = core.select_effective_components(components, period_date)
+		eff_brackets = core.select_effective_brackets(brackets, period_date)
+	}
 
+	// 2. Construire les tâches (séquentiel : I/O base dans la goroutine du worker)
+	employees := s.repo.get_all_employees(org_id)
+	mut tasks := []EmpPayoutTask{}
 	for emp in employees {
-		// 3. Récupérer le contrat actif de l'employé
 		contract := s.repo.get_active_contract(emp.id, org_id) or {
 			log_warn('Pas de contrat actif pour ${emp.first_name} ${emp.last_name}')
 			continue
 		}
-
-		// 4. Récupérer les ajustements du mois pour cet employé (filtrés par période)
 		adjustments := s.repo.get_adjustments_for_period(emp.id, month, year, org_id)
-
-		// 5. Calculer la paie complète (CNPS, CMU, IS, CN, IGR avec quotient familial)
-		mut result := core.CalculationResult{}
-		if components.len > 0 {
-			eff_components := core.select_effective_components(components, period_date)
-			eff_brackets := core.select_effective_brackets(brackets, period_date)
-			result = core.compute_payslip_configurable(contract, eff_components, eff_brackets, adjustments, emp.tax_parts)
-		} else {
-			result = core.calculate_pay_full_ci(contract, rules, adjustments, emp.tax_parts)
+		tasks << EmpPayoutTask{
+			idx: tasks.len
+			emp_id: emp.id
+			contract: contract
+			adjustments: adjustments
+			tax_parts: emp.tax_parts
 		}
+	}
+	if progress != unsafe { nil } {
+		progress(20)
+	}
 
-		// 6. Créer le bulletin (Payslip)
+	// 3. Fan-out : calculs purs en parallèle, agrégation par index de tâche
+	mut ch := chan CalcOut{
+		cap: tasks.len
+	}
+	for t in tasks {
+		spawn payout_worker(ch, t, use_config, eff_components, eff_brackets, rules)
+	}
+	mut results := []core.CalculationResult{len: tasks.len}
+	for _ in 0 .. tasks.len {
+		out := <-ch
+		results[out.idx] = out.result
+	}
+	if progress != unsafe { nil } {
+		progress(60)
+	}
+
+	// 4. Construire les bulletins à partir des résultats
+	mut payslips := []models.Payslip{}
+	for i in 0 .. tasks.len {
+		task := tasks[i]
+		result := results[i]
 		period_start := time.Time{
 			year: year
 			month: month
@@ -69,10 +142,9 @@ pub fn (mut s PayrollService) run_monthly_payroll(org_id int, month int, year in
 			month: month
 			day: core.days_in_month(month, year)
 		}
-
-		new_payslip := models.Payslip{
+		payslips << models.Payslip{
 			organization_id: org_id
-			employee_id: emp.id
+			employee_id: task.emp_id
 			period_start: period_start
 			period_end: period_end
 			gross_amount: result.gross_pay
@@ -80,27 +152,9 @@ pub fn (mut s PayrollService) run_monthly_payroll(org_id int, month int, year in
 			net_amount: result.net_pay
 			status: models.status_brouillon
 		}
-
-		generated_payslips << new_payslip
-		log_info('Paie calculée pour ${emp.first_name} ${emp.last_name}: Net ${result.net_pay} FCFA')
 	}
 
-	return generated_payslips
-}
-
-// run_and_save_monthly_payroll Génère puis sauvegarde les bulletins de paie du mois d'une organisation.
-// Toutes les insertions sont enveloppées dans une transaction : en cas d'erreur partielle,
-// aucun bulletin n'est persisté (pas de paie incomplète en base).
-// Une exécution déjà effectuée pour la même période est refusée (idempotence).
-pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int, year int) ![]models.Payslip {
-	// Idempotence : refuser si la paie de cette période a déjà été générée
-	if s.repo.exists_payslip_for_period(month, year, org_id) {
-		return error('La paie de ${month}/${year} a déjà été générée. Utilisez la correction de bulletin si nécessaire.')
-	}
-
-	payslips := s.run_monthly_payroll(org_id, month, year)!
-
-	// Ouvrir la transaction avant toute insertion
+	// 5. Ouvrir la transaction avant toute insertion
 	s.repo.begin_transaction()!
 
 	mut saved := []models.Payslip{}
@@ -116,15 +170,18 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 		}
 	}
 
-	// Valider la transaction uniquement si tous les bulletins ont été insérés
+	// 6. Valider la transaction uniquement si tous les bulletins ont été insérés
 	s.repo.commit() or {
 		s.repo.rollback()
 		return error('COMMIT échoué : ${err}')
 	}
 
+	if progress != unsafe { nil } {
+		progress(85)
+	}
 	log_info('Paie du ${month}/${year} : ${saved.len} bulletins générés et sauvegardés')
 
-	// Notifier les employés pour la mise à disposition de leur bulletin
+	// 7. Notifier les employés pour la mise à disposition de leur bulletin
 	mut queue := new_notification_queue()
 	for p in saved {
 		emp := s.repo.get_employee_by_id(p.employee_id, org_id) or { continue }
@@ -135,6 +192,9 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 	dispatcher.queue = queue
 	dispatcher.dispatch_all()
 
+	if progress != unsafe { nil } {
+		progress(100)
+	}
 	return saved
 }
 

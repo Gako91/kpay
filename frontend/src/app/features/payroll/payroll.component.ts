@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { Payslip } from '../../core/models/kpay.models';
+import { Job, Payslip } from '../../core/models/kpay.models';
 
 @Component({
     selector: 'app-payroll',
@@ -52,6 +52,19 @@ import { Payslip } from '../../core/models/kpay.models';
       <!-- Message succès -->
       @if (successMessage()) {
         <div class="alert alert-success">{{ successMessage() }}</div>
+      }
+
+      <!-- Barre de progression du job asynchrone (Pilier 4 / SSE) -->
+      @if (isRunning() && jobProgress() !== null) {
+        <div class="card p-4">
+          <div class="flex items-center justify-between text-sm mb-2">
+            <span class="font-medium text-slate-700">Génération de la paie (job #{{ activeJobId() }})…</span>
+            <span class="num font-semibold text-slate-900">{{ jobProgress() }}%</span>
+          </div>
+          <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" [style.width]="jobProgress() + '%'"></div>
+          </div>
+        </div>
       }
 
       <!-- Bulletins -->
@@ -128,6 +141,8 @@ export class PayrollComponent implements OnInit {
     isRunning = signal(false);
     errorMessage = signal('');
     successMessage = signal('');
+    jobProgress = signal<number | null>(null);
+    activeJobId = signal(0);
 
     selectedMonth: number = 0;
     selectedYear: number = 0;
@@ -174,17 +189,53 @@ export class PayrollComponent implements OnInit {
         this.isRunning.set(true);
         this.errorMessage.set('');
         this.successMessage.set('');
+        this.jobProgress.set(0);
         this.apiService.runPayroll(this.selectedMonth, this.selectedYear).subscribe({
             next: (res) => {
-                this.isRunning.set(false);
-                this.successMessage.set(`${res.count} bulletin(s) généré(s) pour ${this.selectedMonth}/${this.selectedYear}.`);
-                this.loadPayslips();
+                this.activeJobId.set(res.job_id);
+                this.successMessage.set(res.message || `Paie ${this.selectedMonth}/${this.selectedYear} prise en charge.`);
+                this.connectJobStream(res.job_id);
             },
             error: (err) => {
                 this.isRunning.set(false);
+                this.jobProgress.set(null);
                 this.errorMessage.set(this.extractError(err) || 'Erreur lors de la génération de la paie.');
             }
         });
+    }
+
+    // Branche un EventSource sur le flux SSE de progression du job et pilote la barre.
+    private connectJobStream(jobId: number): void {
+        let es: EventSource;
+        try {
+            es = new EventSource(this.apiService.jobEventsUrl(jobId));
+        } catch {
+            this.isRunning.set(false);
+            this.jobProgress.set(null);
+            this.errorMessage.set('Impossible d\'ouvrir le flux de progression du job.');
+            return;
+        }
+        es.addEventListener('job', (ev: MessageEvent) => {
+            const job: Job = JSON.parse(ev.data);
+            this.jobProgress.set(job.progress);
+        });
+        es.addEventListener('done', (ev: MessageEvent) => {
+            const status = ev.data;
+            es.close();
+            this.isRunning.set(false);
+            this.jobProgress.set(null);
+            if (status === 'done') {
+                this.successMessage.set(`Paie ${this.selectedMonth}/${this.selectedYear} générée avec succès.`);
+                this.loadPayslips();
+            } else {
+                this.errorMessage.set(`La génération de la paie s'est terminée en échec (${status}). Consultez le suivi des jobs.`);
+            }
+        });
+        es.onerror = () => {
+            es.close();
+            this.isRunning.set(false);
+            this.jobProgress.set(null);
+        };
     }
 
     submit(id: number): void {

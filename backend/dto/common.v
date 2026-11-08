@@ -32,6 +32,15 @@ pub mut:
 	year  int
 }
 
+// JobRunResponse — réponse d'enfilement d'un job asynchrone (Pilier 4)
+pub struct JobRunResponse {
+pub mut:
+	success bool
+	job_id  int
+	status  string
+	message string
+}
+
 // Ligne individuelle pour le Livre de Paie (Payroll Book)
 pub struct PayrollBookItem {
 pub mut:

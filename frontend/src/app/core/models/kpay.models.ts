@@ -102,6 +102,33 @@ export interface PayRun {
     date: string;
 }
 
+// Job asynchrone de la file de traitement (Pilier 4)
+export interface Job {
+    id: number;
+    organization_id: number;
+    job_type: string;                         // ex: payroll.run
+    status: 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
+    progress: number;                         // 0-100
+    payload: string;
+    result: string;
+    error: string;
+    attempts: number;
+    max_attempts: number;
+    next_retry_at: string | null;
+    created_by: string;
+    created_at: string;
+    started_at: string | null;
+    finished_at: string | null;
+}
+
+// Réponse d'enfilement d'un job (202 Accepted)
+export interface JobRunResponse {
+    success: boolean;
+    job_id: number;
+    status: string;
+    message: string;
+}
+
 export interface AuthResponse {
     success: boolean;
     token: string;

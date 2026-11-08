@@ -28,6 +28,7 @@ pub mut:
 	mailer_svc   services.MailerService // Service d'envoi d'emails (SMTP)
 	profile_svc  services.ProfileService // Service profils employés (workflow validation RH)
 	leave_svc    services.LeaveService // Service congés (workflow N+1 → RH, soldes)
+	jobs_svc     services.JobWorker // File de traitement asynchrone (Pilier 4, SSE)
 }
 
 // Contexte par requête
@@ -140,13 +141,7 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 			ctx.json(dto.error_response('Session invalide ou expirée'))
 			return false
 		}
-		ctx.user_sub = claims.sub
-		ctx.user_role = claims.role
-		ctx.user_org = claims.org
-		// Permissions du rôle chargées depuis la base (effet immédiat après un changement RBAC)
-		if claims.role != 'admin' {
-			ctx.user_perms = app.repo.get_role_permissions(claims.role)
-		}
+		app.apply_claims(mut ctx, claims)
 		return true
 	}
 
@@ -159,10 +154,37 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 		return true
 	}
 
+	// 3) EventSource (SSE) : le navigateur ne peut pas envoyer de header Authorization.
+	// Le token JWT est transmis en query param (uniquement sur les routes /events/).
+	if ctx.req.url.starts_with('/events/') {
+		token := ctx.query['token']
+		if token.len > 0 {
+			claims := common.verify_jwt(token, app.jwt_secret) or {
+				services.log_warn('Requête refusée — token SSE invalide (${ctx.req.url}): ${err}')
+				ctx.res.set_status(.unauthorized)
+				ctx.json(dto.error_response('Session invalide ou expirée'))
+				return false
+			}
+			app.apply_claims(mut ctx, claims)
+			return true
+		}
+	}
+
 	services.log_warn('Requête refusée — authentification manquante ou invalide (${ctx.req.url})')
 	ctx.res.set_status(.unauthorized)
 	ctx.json(dto.error_response('Authentification requise — fournissez un token Bearer JWT ou le header X-Api-Key'))
 	return false
+}
+
+// apply_claims remplit le contexte utilisateur à partir de claims JWT validés.
+fn (mut app App) apply_claims(mut ctx Context, claims common.JwtClaims) {
+	ctx.user_sub = claims.sub
+	ctx.user_role = claims.role
+	ctx.user_org = claims.org
+	// Permissions du rôle chargées depuis la base (effet immédiat après un changement RBAC)
+	if claims.role != 'admin' {
+		ctx.user_perms = app.repo.get_role_permissions(claims.role)
+	}
 }
 
 // OPENAPI_YAML_SPEC embarqué dans le binaire pour éviter les problèmes de chemin/conteneur

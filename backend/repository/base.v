@@ -56,6 +56,7 @@ fn (mut r Repository) init_tables() ! {
 		create table models.LeaveRequest
 		create table models.Organization
 		create table models.LeaveBalance
+		create table models.Job
 	}!
 
 	// Les tables de sécurité (permission, role_permission, user_sso, sso_state)

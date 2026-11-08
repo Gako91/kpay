@@ -254,7 +254,9 @@ pub fn (mut app App) get_payslip_pdf(mut ctx Context, id int) veb.Result {
 	return app.render_payslip_pdf(mut ctx, id)
 }
 
-// run_payroll POST /payroll/run - Génère et sauvegarde la paie mensuelle de tous les employés
+// run_payroll POST /payroll/run - Enfile un job asynchrone de génération de la
+// paie mensuelle (Pilier 4). Le traitement se fait en arrière-plan ; la progression
+// est consultable via GET /jobs/:id et/ou le flux SSE /events/jobs/:id.
 @['/payroll/run'; post]
 pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 	if !ctx.has_role(['admin', 'payroll_officer']) {
@@ -276,20 +278,27 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
-	mut payroll_service := services.new_payroll_service(mut app.repo)
-	payroll_service.set_mailer(app.mailer_svc)
-	payslips := payroll_service.run_and_save_monthly_payroll(ctx.user_org, req.month, req.year) or {
-		if err.msg().contains('déjà été générée') {
-			ctx.res.set_status(.conflict)
-			return ctx.json(dto.error_response(err.msg()))
-		}
-		ctx.res.set_status(.internal_server_error)
-		return ctx.json(dto.error_response(err.msg()))
+	// Idempotence : refuser si la paie de cette période a déjà été générée
+	if app.repo.exists_payslip_for_period(req.month, req.year, ctx.user_org) {
+		ctx.res.set_status(.conflict)
+		return ctx.json(dto.error_response("La paie de ${req.month}/${req.year} a déjà été générée. Utilisez la correction de bulletin si nécessaire."))
 	}
-	app.audit_action(mut ctx, 'payroll.run', 'payroll', 0, 'Paie ${req.month}/${req.year} — ${payslips.len} bulletins générés')
 
-	ctx.res.set_status(.created)
-	return ctx.json(dto.RunResponse{ success: true, count: payslips.len, payslips: payslips })
+	payload := '{"month": ${req.month}, "year": ${req.year}}'
+	job_id := app.jobs_svc.enqueue(mut app.repo, ctx.user_org, models.job_type_payroll_run, payload,
+		ctx.user_sub, 3) or {
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response('Erreur lors de la création du job: ${err}'))
+	}
+	app.audit_action(mut ctx, 'payroll.run', 'job', job_id, 'Paie ${req.month}/${req.year} enfilée (job #${job_id})')
+
+	ctx.res.set_status(.accepted)
+	return ctx.json(dto.JobRunResponse{
+		success: true
+		job_id: job_id
+		status: models.job_pending
+		message: "Paie ${req.month}/${req.year} prise en charge (job #${job_id})"
+	})
 }
 
 // GET /exports/employees/csv - Exporter les employés au format CSV
