@@ -3,9 +3,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      additional_contexts:
-        vlang: /home/gnoboa/kpay-v
-        vmodules: /home/gnoboa/.vmodules
       tags:
         - kpay-kpay
     ports:

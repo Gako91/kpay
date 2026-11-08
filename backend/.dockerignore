@@ -1,0 +1,10 @@
+# Binaires et artefacts locaux (recompilés dans l'image)
+backend
+kpay
+kpaynew
+main
+main.so
+*.db
+.*.v3cc.*
+Dockerfile.backup
+storage/payslips/*.pdf
