@@ -46,8 +46,10 @@ pub fn (s &AuthService) login(username string, password string) !dto.LoginRespon
 	// employés se connectent souvent avec leur adresse (ex: koffi.kouame@example.com).
 	user := s.repo.get_user_by_username(username) or {
 		s.repo.get_user_by_username_ci(username) or {
+			// L'email n'est pas unique entre organisations : on n'accepte la connexion
+			// par email que si elle désigne un compte sans ambiguïté (sinon username requis).
 			matches := s.repo.users_by_email_ci(username)
-			if matches.len > 0 {
+			if matches.len == 1 {
 				matches[0]
 			} else {
 				return error('Identifiants invalides')
