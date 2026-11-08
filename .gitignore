@@ -15,3 +15,9 @@ kpay
 storage/payslips/*.pdf
 
 
+
+# Binaires locaux et fichiers temporaires du compilateur V
+backend/backend
+backend/kpaynew
+.*.v3cc.*/
+*.backup
