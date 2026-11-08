@@ -42,9 +42,16 @@ pub fn (s &AuthService) login(username string, password string) !dto.LoginRespon
 	if s.jwt_secret.len == 0 {
 		return error('JWT secret non configuré')
 	}
+	// Identifiant : username (casse-insensible), puis email (casse-insensible) — les
+	// employés se connectent souvent avec leur adresse (ex: koffi.kouame@example.com).
 	user := s.repo.get_user_by_username(username) or {
 		s.repo.get_user_by_username_ci(username) or {
-			return error('Identifiants invalides')
+			matches := s.repo.users_by_email_ci(username)
+			if matches.len > 0 {
+				matches[0]
+			} else {
+				return error('Identifiants invalides')
+			}
 		}
 	}
 	if !user.is_active {

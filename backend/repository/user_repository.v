@@ -38,6 +38,22 @@ pub fn (r &Repository) get_user_by_username_ci(username string) ?models.User {
 	return none
 }
 
+// users_by_email_ci retourne les comptes dont l'email correspond (casse-insensible).
+// Retourne une slice plutôt qu'une option : shape codegen plus sûre avec le bug -prod
+// de V 0.5.2 (panic "option/result propagation failed" sur certaines fonctions d'option).
+pub fn (r &Repository) users_by_email_ci(email string) []models.User {
+	rows := sql r.db {
+		select from models.User
+	} or { return []models.User{} }
+	mut out := []models.User{}
+	for u in rows {
+		if u.email.to_lower() == email.to_lower() {
+			out << u
+		}
+	}
+	return out
+}
+
 // get_user_by_email retrouve un compte actif par email dans une organisation (SSO strict).
 pub fn (r &Repository) get_user_by_email(org_id int, email string) ?models.User {
 	rows := sql r.db {
