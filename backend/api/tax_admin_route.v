@@ -13,16 +13,6 @@ fn today_str() string {
 	return '${t.year:04d}-${t.month:02d}-${t.day:02d}'
 }
 
-// is_active_default : si la requête ne précise pas explicitement 'is_active', la valeur
-// décodée (false) vient du défaut struct, pas de l'intention API. On retombe alors sur le
-// défaut de la colonne (TRUE), faute de quoi ce flag échapperait au contrôle de non-recouvrement.
-fn is_active_default(body string, decoded_is_active bool) bool {
-	if body.contains('"is_active"') {
-		return decoded_is_active
-	}
-	return true
-}
-
 // ==================== COMPOSANTES ====================
 
 // get_admin_tax_components GET /admin/tax-components - Liste des composantes de l'organisation

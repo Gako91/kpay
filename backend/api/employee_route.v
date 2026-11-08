@@ -64,9 +64,13 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response('JSON invalide'))
 	}
+	// json2 ignore les @[default] : un champ absent vaudrait false / 0.
+	keys := json_keys(body)
 	emp := models.Employee{
 		...decoded
 		organization_id: ctx.user_org
+		is_active: if 'is_active' in keys { decoded.is_active } else { true }
+		tax_parts: if 'tax_parts' in keys { decoded.tax_parts } else { f32(1.0) }
 	}
 
 	dto.validate_employee(emp) or {
@@ -150,21 +154,23 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response('JSON invalide'))
 	}
+	existing := app.employee_svc.get_by_id(id, ctx.user_org) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Employé non trouvé'))
+	}
+	// json2 ignore les @[default] : si is_active est absent du corps, on conserve
+	// la valeur actuelle (sinon l'employé serait désactivé par erreur).
+	keys := json_keys(body)
 	emp := models.Employee{
 		...decoded
 		id: id // Forcer l'ID depuis l'URL
 		organization_id: ctx.user_org
+		is_active: if 'is_active' in keys { decoded.is_active } else { existing.is_active }
 	}
 
 	dto.validate_employee(emp) or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
-	}
-
-	// Vérifier que l'employé existe
-	app.employee_svc.get_by_id(id, ctx.user_org) or {
-		ctx.res.set_status(.not_found)
-		return ctx.json(dto.error_response('Employé non trouvé'))
 	}
 
 	app.employee_svc.update(emp) or {
