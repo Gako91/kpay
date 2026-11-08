@@ -22,10 +22,16 @@ fn main() {
 		services.log_error("Aucune méthode d'auth configurée — définissez KPAY_API_KEY ou KPAY_JWT_SECRET dans .env")
 		return
 	}
+	// En production, refuser les secrets faibles ou laissés à une valeur d'exemple
+	config.check_secrets() or {
+		services.log_error('Configuration refusée: ${err}')
+		return
+	}
 	if config.jwt_secret.len > 0 {
 		services.log_info('Auth: JWT actif')
-	} else {
-		services.log_info('Auth: API Key active (compatibilité)')
+	}
+	if config.api_key.len > 0 {
+		services.log_warn('Auth: clé API active (X-Api-Key) — droits admin sur l\'organisation 1')
 	}
 
 	mut repo := repository.new_repository(config) or {

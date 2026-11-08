@@ -10,8 +10,10 @@ services:
     environment:
       - KPAY_PORT=9199
       - KPAY_ENV=prod
-      - KPAY_API_KEY=${KPAY_COMPOSE_API_KEY:-kpay_secret_key_change_in_production}
-      - KPAY_JWT_SECRET=${KPAY_COMPOSE_JWT_SECRET:-change_this_jwt_secret_in_production}
+      # Secrets obligatoires, sans défaut : à définir dans .env (voir .env.example).
+      # KPAY_API_KEY vide = authentification par clé API désactivée.
+      - KPAY_API_KEY=${KPAY_COMPOSE_API_KEY:-}
+      - KPAY_JWT_SECRET=${KPAY_COMPOSE_JWT_SECRET:?définir KPAY_COMPOSE_JWT_SECRET dans .env}
       - KPAY_JWT_EXPIRATION_HOURS=24
       - KPAY_CORS_ORIGINS=*
       - KPAY_LOG_LEVEL=info
@@ -20,11 +22,11 @@ services:
       - KPAY_DB_HOST=db
       - KPAY_DB_PORT=5432
       - KPAY_DB_USER=${KPAY_COMPOSE_DB_USER:-kpay_user}
-      - KPAY_DB_PASSWORD=${KPAY_COMPOSE_DB_PASSWORD:-secure_password}
+      - KPAY_DB_PASSWORD=${KPAY_COMPOSE_DB_PASSWORD:?définir KPAY_COMPOSE_DB_PASSWORD dans .env}
       - KPAY_DB_NAME=${KPAY_COMPOSE_DB_NAME:-kpay_db}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:?définir MINIO_ROOT_PASSWORD dans .env}
       - MINIO_BUCKET=payslips
       # Pool de connexions DB
       - KPAY_DB_POOL_MAX_OPEN=10
@@ -61,7 +63,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${KPAY_COMPOSE_DB_USER:-kpay_user}
-      POSTGRES_PASSWORD: ${KPAY_COMPOSE_DB_PASSWORD:-secure_password}
+      POSTGRES_PASSWORD: ${KPAY_COMPOSE_DB_PASSWORD:?définir KPAY_COMPOSE_DB_PASSWORD dans .env}
       POSTGRES_DB: ${KPAY_COMPOSE_DB_NAME:-kpay_db}
     volumes:
       - pg_data:/var/lib/postgresql/data
@@ -78,7 +80,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?définir MINIO_ROOT_PASSWORD dans .env}
     volumes:
       - minio_data:/data
     ports:
@@ -94,12 +96,15 @@ services:
     # bitnami/minio-client a été retiré de Docker Hub (politique 2025) : l'org bitnamilegacy
     # conserve les images libres. mc se trouve dans /opt/bitnami/minio-client/bin (sur le PATH).
     image: bitnamilegacy/minio-client:latest
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?définir MINIO_ROOT_PASSWORD dans .env}
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
       mc mb myminio/payslips --ignore-existing;
       exit 0;
       "

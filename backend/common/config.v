@@ -148,3 +148,39 @@ pub fn (c Config) is_dev() bool {
 pub fn (c Config) is_prod() bool {
 	return c.environment == 'prod'
 }
+
+// Longueur minimale des secrets d'authentification en production.
+const min_secret_len = 32
+
+// Valeurs d'exemple connues (anciens défauts de compose.yml, docs) : à rejeter en prod.
+const placeholder_secrets = ['kpay_secret_key_change_in_production',
+	'change_this_jwt_secret_in_production', 'secret', 'changeme', 'minioadmin']
+
+// check_secrets vérifie, en production uniquement, que les secrets
+// d'authentification ne sont ni trop courts ni des valeurs d'exemple.
+// La clé API est facultative (vide = désactivée).
+pub fn (c Config) check_secrets() ! {
+	if !c.is_prod() {
+		return
+	}
+	check_secret('KPAY_JWT_SECRET', c.jwt_secret, true)!
+	check_secret('KPAY_API_KEY', c.api_key, false)!
+	if c.minio_secret_key in placeholder_secrets {
+		return error('MINIO_SECRET_KEY utilise une valeur par défaut')
+	}
+}
+
+fn check_secret(name string, value string, required bool) ! {
+	if value.len == 0 {
+		if required {
+			return error('${name} est obligatoire en production')
+		}
+		return
+	}
+	if value in placeholder_secrets {
+		return error("${name} utilise une valeur d'exemple")
+	}
+	if value.len < min_secret_len {
+		return error('${name} doit contenir au moins ${min_secret_len} caractères (actuel : ${value.len})')
+	}
+}

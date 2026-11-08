@@ -7,6 +7,7 @@ import services
 import common
 import models
 import json2
+import crypto.hmac
 
 // Application principale
 @[heap]
@@ -146,9 +147,11 @@ pub fn (mut app App) auth_middleware(mut ctx Context) bool {
 	}
 
 	// 2) Fallback : clé API (compatibilité / intégrations)
-	// L'API key est associée à l'organisation par défaut (tenant 1).
+	// L'API key donne les droits admin sur l'organisation plateforme (tenant 1).
+	// Désactivée si KPAY_API_KEY est vide ; comparaison en temps constant.
 	provided_key := ctx.req.header.get_custom('X-Api-Key') or { '' }
-	if provided_key.len > 0 && provided_key == app.api_key {
+	if app.api_key.len > 0 && provided_key.len > 0
+		&& hmac.equal(provided_key.bytes(), app.api_key.bytes()) {
 		ctx.user_role = 'admin'
 		ctx.user_org = 1
 		return true
