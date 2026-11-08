@@ -1,23 +1,27 @@
 module repository
 
+import db.pg
 import models
 
 // create_leave_request enregistre une nouvelle demande de congé.
 // Le statut initial est 'en_attente' sauf indication contraire (ex: N+1 absent).
 pub fn (mut r Repository) create_leave_request(req models.LeaveRequest) !models.LeaveRequest {
-	mut entry := req
-	status := if entry.status.len == 0 { 'en_attente' } else { entry.status }
-	entry = models.LeaveRequest{
-		...entry
-		status: status
+	entry := models.LeaveRequest{
+		...req
+		status: if req.status.len == 0 { 'en_attente' } else { req.status }
 	}
-	inserted_id := sql r.db {
-		insert entry into models.LeaveRequest
-	}!
 	return models.LeaveRequest{
 		...entry
-		id: inserted_id
+		id: r.insert_leave_request(entry)!
 	}
+}
+
+fn (mut r Repository) insert_leave_request(entry models.LeaveRequest) !int {
+	return r.insert_id(fn [entry] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert entry into models.LeaveRequest
+		}!
+	})!
 }
 
 // get_leave_request retourne une demande de congé scoped par organisation.

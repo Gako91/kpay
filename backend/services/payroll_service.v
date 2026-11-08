@@ -154,27 +154,9 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 		}
 	}
 
-	// 5. Ouvrir la transaction avant toute insertion
-	s.repo.begin_transaction()!
-
-	mut saved := []models.Payslip{}
-	for payslip in payslips {
-		id := s.repo.create_payslip(payslip) or {
-			// Une insertion a échoué : on annule tout ce qui a été fait dans cette transaction
-			s.repo.rollback()
-			return error('Erreur lors de la sauvegarde du bulletin pour employé ${payslip.employee_id}: ${err}')
-		}
-		saved << models.Payslip{
-			...payslip
-			id: id
-		}
-	}
-
-	// 6. Valider la transaction uniquement si tous les bulletins ont été insérés
-	s.repo.commit() or {
-		s.repo.rollback()
-		return error('COMMIT échoué : ${err}')
-	}
+	// 5-6. Enregistrement atomique du lot : une seule transaction sur une connexion
+	// réservée — en cas d'échec d'un bulletin, aucun n'est conservé.
+	saved := s.repo.create_payslips(payslips)!
 
 	if progress != unsafe { nil } {
 		progress(85)

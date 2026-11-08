@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 import time
 
@@ -7,9 +8,11 @@ import time
 
 // create_job insère un job en attente (pending) et retourne son identifiant.
 pub fn (mut r Repository) create_job(job models.Job) !int {
-	job_id := sql r.db {
-		insert job into models.Job
-	}!
+	job_id := r.insert_id(fn [job] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert job into models.Job
+		}!
+	})!
 	return job_id
 }
 

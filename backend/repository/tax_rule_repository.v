@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== TAX RULES ====================
@@ -17,9 +18,11 @@ pub fn (r &Repository) get_all_tax_rules(org_id int) []models.TaxRule {
 }
 
 pub fn (mut r Repository) create_tax_rule(rule models.TaxRule) !int {
-	inserted_id := sql r.db {
-		insert rule into models.TaxRule
-	}!
+	inserted_id := r.insert_id(fn [rule] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert rule into models.TaxRule
+		}!
+	})!
 	return inserted_id
 }
 

@@ -46,35 +46,20 @@ pub fn (mut s AdminService) create_organization_with_admin(req dto.CreateOrganiz
 		'${req.admin_username}@${req.name.replace(' ', '').to_lower()}.local'
 	}
 
-	s.repo.begin_transaction() or { return error("Impossible de démarrer la transaction: ${err}") }
-
-	org_id := s.repo.create_organization(models.Organization{
+	// Organisation + admin créés dans la même transaction (atomique)
+	org_id, user_id := s.repo.create_organization_with_admin(models.Organization{
 		name: req.name.trim_space()
 		tax_id: req.tax_id.trim_space()
 		currency: currency
 		created_at: time.now()
-	}) or {
-		s.repo.rollback()
-		return error("Échec de la création de l'organisation: ${err}")
-	}
-
-	user_id := s.repo.create_user(models.User{
+	}, models.User{
 		username: req.admin_username.trim_space()
 		password_hash: common.hash_password(req.admin_password)
 		role: 'admin'
 		email: email
-		organization_id: org_id
 		is_active: true
 		created_at: time.now()
-	}) or {
-		s.repo.rollback()
-		return error("Échec de la création de l'admin: ${err}")
-	}
-
-	s.repo.commit() or {
-		s.repo.rollback()
-		return error("Échec du commit: ${err}")
-	}
+	})!
 
 	log_info("Organisation '${req.name}' créée (org ${org_id}) avec admin '${req.admin_username}' (user ${user_id})")
 	return dto.CreateOrganizationResponse{

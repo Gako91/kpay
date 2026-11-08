@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== TAX BRACKETS (Pilier 2.2) ====================
@@ -21,9 +22,11 @@ pub fn (r &Repository) get_bracket_by_id(bracket_id int, org_id int) ?models.Tax
 }
 
 pub fn (mut r Repository) create_bracket(bracket models.TaxBracket) !int {
-	inserted_id := sql r.db {
-		insert bracket into models.TaxBracket
-	}!
+	inserted_id := r.insert_id(fn [bracket] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert bracket into models.TaxBracket
+		}!
+	})!
 	return inserted_id
 }
 

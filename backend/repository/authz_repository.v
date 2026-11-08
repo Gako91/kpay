@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import time
 import models
 
@@ -43,7 +44,6 @@ pub fn (mut r Repository) set_role_permissions(role string, codes []string) ! {
 	if role == 'admin' {
 		return error('Le rôle admin possède toutes les permissions de façon implicite')
 	}
-	r.begin_transaction()!
 	mut valid := []string{}
 	all_perms := r.get_all_permissions()
 	for c in codes {
@@ -58,23 +58,22 @@ pub fn (mut r Repository) set_role_permissions(role string, codes []string) ! {
 			valid << c
 		}
 	}
-	r.db.exec_param_many('DELETE FROM role_permission WHERE role = \$1', [role]) or {
-		r.rollback()
+	// Remplacement atomique (DELETE + INSERT sur la même connexion réservée)
+	mut tx := r.begin()!
+	tx.exec_param_many('DELETE FROM role_permission WHERE role = \$1', [role]) or {
+		tx.rollback() or {}
 		return error('Échec de la mise à jour des permissions: ${err}')
 	}
 	for c in valid {
-		r.db.exec_param_many('INSERT INTO role_permission (role, permission_code) VALUES (\$1, \$2) ON CONFLICT DO NOTHING', [
+		tx.exec_param_many('INSERT INTO role_permission (role, permission_code) VALUES (\$1, \$2) ON CONFLICT DO NOTHING', [
 			role,
 			c,
 		]) or {
-			r.rollback()
+			tx.rollback() or {}
 			return error('Échec de l\'insertion des permissions: ${err}')
 		}
 	}
-	r.commit() or {
-		r.rollback()
-		return error('Échec du commit: ${err}')
-	}
+	tx.commit() or { return error('Échec du commit: ${err}') }
 }
 
 // ==================== SSO — USER_SSO ====================
@@ -99,9 +98,11 @@ pub fn (r &Repository) get_user_sso_links(user_id int) []models.UserSso {
 
 // save_user_sso enregistre un nouveau lien SSO.
 pub fn (mut r Repository) save_user_sso(link models.UserSso) !int {
-	return sql r.db {
-		insert link into models.UserSso
-	}!
+	return r.insert_id(fn [link] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert link into models.UserSso
+		}!
+	})!
 }
 
 // delete_user_sso supprime un lien SSO.

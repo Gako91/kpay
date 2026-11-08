@@ -1,14 +1,17 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== AUDIT LOG ====================
 
 // create_audit_log insère une entrée dans le journal d'audit.
 pub fn (mut r Repository) create_audit_log(log models.AuditLog) !int {
-	inserted_id := sql r.db {
-		insert log into models.AuditLog
-	}!
+	inserted_id := r.insert_id(fn [log] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert log into models.AuditLog
+		}!
+	})!
 	return inserted_id
 }
 

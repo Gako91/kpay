@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 import time
 
@@ -34,8 +35,10 @@ pub fn (r &Repository) get_contracts_by_employee(emp_id int, org_id int) []model
 }
 
 pub fn (mut r Repository) create_contract(contract models.Contract) !int {
-	inserted_id := sql r.db {
-		insert contract into models.Contract
-	}!
+	inserted_id := r.insert_id(fn [contract] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert contract into models.Contract
+		}!
+	})!
 	return inserted_id
 }

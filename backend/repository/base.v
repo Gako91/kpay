@@ -105,8 +105,6 @@ fn (mut r Repository) init_tables() ! {
 }
 
 // run_migrations applique les scripts SQL versionnés depuis le dossier spécifié.
-
-// run_migrations applique les scripts SQL versionnés depuis le dossier spécifié.
 pub fn (mut r Repository) run_migrations(migrations_dir string) ! {
 	if !os.exists(migrations_dir) {
 		return
@@ -140,39 +138,49 @@ pub fn (mut r Repository) run_migrations(migrations_dir string) ! {
 			return error('Impossible de lire la migration ${file_path}: ${err}')
 		}
 
-		r.begin_transaction() or { return error('Erreur transaction migration ${file}: ${err}') }
-		r.db.exec(sql_content) or {
-			r.rollback()
+		// Script + enregistrement de version dans la même transaction (même connexion)
+		mut tx := r.begin() or { return error('Erreur transaction migration ${file}: ${err}') }
+		tx.exec(sql_content) or {
+			tx.rollback() or {}
 			return error('Erreur execution migration ${file}: ${err}')
 		}
-		r.db.exec_param_many('INSERT INTO schema_migrations (version) VALUES (\$1);', [
+		tx.exec_param_many('INSERT INTO schema_migrations (version) VALUES (\$1);', [
 			file,
 		]) or {
-			r.rollback()
+			tx.rollback() or {}
 			return error('Erreur enregistrement migration ${file}: ${err}')
 		}
-		r.commit() or {
-			r.rollback()
-			return error('Erreur commit migration ${file}: ${err}')
-		}
+		tx.commit() or { return error('Erreur commit migration ${file}: ${err}') }
 	}
 }
 
 // ==================== TRANSACTIONS ====================
+//
+// `r.db` est un POOL : chaque appel (exec, sql r.db { ... }) peut s'exécuter sur une
+// connexion différente. Un `BEGIN` envoyé via le pool n'englobe donc PAS les requêtes
+// suivantes. Toute opération multi-requêtes atomique doit passer par `begin()`, qui
+// réserve UNE connexion pour toute la durée de la transaction.
 
-// begin_transaction démarre une transaction PostgreSQL.
-pub fn (mut r Repository) begin_transaction() ! {
-	r.db.exec('BEGIN') or { return error('BEGIN échoué: ${err}') }
+// begin ouvre une transaction PostgreSQL sur une connexion réservée du pool.
+// L'appelant doit terminer par tx.commit() ou tx.rollback() (libère la connexion).
+pub fn (mut r Repository) begin() !&pg.Tx {
+	return r.db.begin(transaction_level: .read_committed)
 }
 
-// commit valide la transaction en cours.
-pub fn (mut r Repository) commit() ! {
-	r.db.exec('COMMIT') or { return error('COMMIT échoué: ${err}') }
-}
-
-// rollback annule la transaction en cours.
-pub fn (mut r Repository) rollback() {
-	r.db.exec('ROLLBACK') or {}
+// insert_id exécute une insertion ORM dans sa propre transaction et retourne l'id généré.
+//
+// Contournement d'un bug de V (db.pg + ORM) : via le pool, `sql r.db { insert ... }`
+// retourne toujours 0 — l'ORM appelle last_id() deux fois et le pool consomme l'id
+// au premier appel. Sur une transaction (connexion réservée), last_id() relit
+// LASTVAL() sur la même session et retourne le bon id.
+fn (mut r Repository) insert_id(f fn (mut tx pg.Tx) !int) !int {
+	mut tx := r.begin()!
+	id := f(mut tx) or {
+		tx.rollback() or {}
+		return err
+	}
+	tx.commit()!
+	return id
 }
 
 // ==================== UTILITIES ====================

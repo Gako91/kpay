@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== EMPLOYEES ====================
@@ -81,9 +82,11 @@ pub fn (mut r Repository) create_employee(emp models.Employee) !int {
 	if emp_exists.len > 0 {
 		return error("L'employé avec l'email '${emp.email}' existe déjà")
 	}
-	inserted_id := sql r.db {
-		insert emp into models.Employee
-	}!
+	inserted_id := r.insert_id(fn [emp] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert emp into models.Employee
+		}!
+	})!
 	return inserted_id
 }
 

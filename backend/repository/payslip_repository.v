@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 import time
 
@@ -39,10 +40,34 @@ pub fn (r &Repository) get_payslip_by_employee_period_id(emp_id int, payslip_id 
 }
 
 pub fn (mut r Repository) create_payslip(payslip models.Payslip) !int {
-	inserted_id := sql r.db {
-		insert payslip into models.Payslip
-	}!
+	inserted_id := r.insert_id(fn [payslip] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert payslip into models.Payslip
+		}!
+	})!
 	return inserted_id
+}
+
+// create_payslips enregistre un lot de bulletins de façon atomique (une seule
+// transaction sur une connexion réservée) : soit tous sont insérés, soit aucun.
+// Retourne les bulletins avec leur id.
+pub fn (mut r Repository) create_payslips(payslips []models.Payslip) ![]models.Payslip {
+	mut tx := r.begin()!
+	mut saved := []models.Payslip{cap: payslips.len}
+	for payslip in payslips {
+		id := sql tx {
+			insert payslip into models.Payslip
+		} or {
+			tx.rollback() or {}
+			return error('Erreur lors de la sauvegarde du bulletin pour employé ${payslip.employee_id}: ${err}')
+		}
+		saved << models.Payslip{
+			...payslip
+			id: id
+		}
+	}
+	tx.commit()!
+	return saved
 }
 
 pub fn (mut r Repository) mark_payslip_paid(payslip_id int, org_id int) ! {

@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // get_leave_balance retourne le solde annuel d'un employé pour un type donné.
@@ -22,9 +23,11 @@ pub fn (r &Repository) get_leave_balances(employee_id int, year int, org_id int)
 
 // create_leave_balance insère une ligne de solde.
 pub fn (mut r Repository) create_leave_balance(b models.LeaveBalance) !int {
-	return sql r.db {
-		insert b into models.LeaveBalance
-	}!
+	return r.insert_id(fn [b] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert b into models.LeaveBalance
+		}!
+	})!
 }
 
 // add_used_leave_days débite le solde utilisé lors de la validation RH.

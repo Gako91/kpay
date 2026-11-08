@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== TAX COMPONENTS (Pilier 2.2) ====================
@@ -21,9 +22,11 @@ pub fn (r &Repository) get_component_by_id(comp_id int, org_id int) ?models.TaxC
 }
 
 pub fn (mut r Repository) create_component(comp models.TaxComponent) !int {
-	inserted_id := sql r.db {
-		insert comp into models.TaxComponent
-	}!
+	inserted_id := r.insert_id(fn [comp] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert comp into models.TaxComponent
+		}!
+	})!
 	return inserted_id
 }
 

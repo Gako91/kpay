@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== USERS ====================
@@ -90,9 +91,11 @@ pub fn (mut r Repository) create_user(user models.User) !int {
 	if existing.len > 0 {
 		return error("Le nom d'utilisateur '${user.username}' existe déjà")
 	}
-	inserted_id := sql r.db {
-		insert user into models.User
-	}!
+	inserted_id := r.insert_id(fn [user] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert user into models.User
+		}!
+	})!
 	return inserted_id
 }
 

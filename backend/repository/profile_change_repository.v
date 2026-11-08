@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 import time
 
@@ -7,9 +8,11 @@ import time
 
 // create_profile_change_request inscrit une demande de modification du profil employé.
 pub fn (mut r Repository) create_profile_change_request(req models.ProfileChangeRequest) !int {
-	inserted_id := sql r.db {
-		insert req into models.ProfileChangeRequest
-	}!
+	inserted_id := r.insert_id(fn [req] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert req into models.ProfileChangeRequest
+		}!
+	})!
 	return inserted_id
 }
 

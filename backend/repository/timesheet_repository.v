@@ -1,5 +1,6 @@
 module repository
 
+import db.pg
 import models
 
 // ==================== TIMESHEETS ====================
@@ -15,9 +16,11 @@ pub fn (r &Repository) get_timesheet(emp_id int, month int, year int, org_id int
 }
 
 pub fn (mut r Repository) create_timesheet(ts models.Timesheet) !int {
-	inserted_id := sql r.db {
-		insert ts into models.Timesheet
-	}!
+	inserted_id := r.insert_id(fn [ts] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert ts into models.Timesheet
+		}!
+	})!
 	return inserted_id
 }
 
@@ -51,9 +54,11 @@ pub fn (r &Repository) get_adjustments(emp_id int, org_id int) []models.Adjustme
 }
 
 pub fn (mut r Repository) create_adjustment(adj models.Adjustment) !int {
-	inserted_id := sql r.db {
-		insert adj into models.Adjustment
-	}!
+	inserted_id := r.insert_id(fn [adj] (mut tx pg.Tx) !int {
+		return sql tx {
+			insert adj into models.Adjustment
+		}!
+	})!
 	return inserted_id
 }
 
