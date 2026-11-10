@@ -15,9 +15,9 @@ Avant de construire les fonctionnalités, sécuriser le socle.
   - [x] Restreindre le seed / les routes de gestion à l'organisation active
   - [x] Endpoint d'administration : création d'organisation + utilisateur admin dédié
 - [ ] **Pipeline CI/CD renforcé**
-  - [ ] Build Docker + push image (GHCR), job frontend (build prod) déjà présent
-  - [ ] Tests backend automatisés dans la CI (déjà en place : core/common/services)
-  - [ ] Tests d'intégration avec PostgreSQL dans la CI
+  - [ ] Build Docker + push image (GHCR), job frontend (build prod) déjà présent — job `docker` en place, à cocher après le premier push réussi sur main
+  - [x] Tests backend automatisés dans la CI (core/common/services, dernière version de V)
+  - [x] Tests d'intégration avec PostgreSQL dans la CI (`repository/integration_test.v` : ids d'insertion, transactions, isolation multi-tenant, migrations)
 - [ ] **Observabilité**
   - [ ] Logs structurés JSON, tracing des requêtes (correlation id)
   - [ ] Métriques Prometheus sur `/metrics` (durées par route, erreurs, compteurs)
