@@ -8,3 +8,7 @@ main.so
 .*.v3cc.*
 Dockerfile.backup
 storage/payslips/*.pdf
+
+# Secrets locaux : jamais dans le contexte de build
+.env
+.env.*
