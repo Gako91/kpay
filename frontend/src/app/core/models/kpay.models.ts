@@ -22,6 +22,9 @@ export interface Employee {
     is_active: boolean;
     user_id?: number;
     manager_id?: number;
+    cnps_number?: string;   // N° CNPS (12 chiffres)
+    birth_date?: string;    // 'YYYY-MM-DD'
+    salary_type?: 'M' | 'J' | 'H' | '';
 }
 
 export interface ProfileChangeRequest {
@@ -276,4 +279,64 @@ export interface PageResponse<T> {
     page_size: number;
     total: number;
     total_pages: number;
+}
+
+// --- Déclarations sociales (Pilier 5.1 — DISA CNPS) ---
+export interface DisaRow {
+    employee_id: number;
+    cnps_number: string;
+    last_name: string;
+    first_names: string;
+    birth_date: string;
+    hire_date: string;
+    departure_date: string;
+    salary_type: string;
+    work_time: number;
+    annual_gross: number;
+}
+
+export interface DisaIssue {
+    employee_id: number;
+    employee_name: string;
+    field: string;
+    message: string;
+    blocking: boolean;
+}
+
+export interface DisaPreview {
+    year: number;
+    employees: number;
+    total_gross: number;
+    blocking_count: number;
+    rows: DisaRow[];
+    issues: DisaIssue[];
+}
+
+export interface DeclarationExport {
+    id: number;
+    organization_id: number;
+    kind: string;
+    period: string;
+    version: number;
+    file_name: string;
+    content_type: string;
+    sha256: string;
+    prev_hash: string;
+    chain_hash: string;
+    row_count: number;
+    total_amount: number;
+    created_by: string;
+    sealed_at: string;
+}
+
+export interface DisaSealed {
+    declaration: DeclarationExport;
+    warnings: DisaIssue[];
+}
+
+export interface ChainCheck {
+    ok: boolean;
+    entries: number;
+    broken_id: number;
+    reason: string;
 }

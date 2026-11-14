@@ -145,11 +145,15 @@ Avant de construire les fonctionnalités, sécuriser le socle.
 
 ### 5.1 États Récapitulatifs & Déclarations
 
-- [ ] **DISA (CNPS)** : export officiel (CSV/XML normé) par période
-  - [ ] `POST /exports/disa` avec mois/année → fichier + version scellée en archive
+- [x] **DISA (CNPS)** : fichier d'entrée E-DISA (.xls Excel 97-2003, 9 colonnes, sans en-tête), annuel
+  - [x] `POST /exports/disa` avec l'année → fichier + version scellée en archive ; `GET /exports/disa/preview` (anomalies bloquantes)
+  - [x] Données employé : n° CNPS, date de naissance, périodicité M/J/H ; page frontend « Déclarations sociales »
+  - [ ] Périodicité journalière (J) : suivi des jours travaillés
+  - [ ] Tableau DASC : cotisations annuelles dues (assiettes plafonnées au prorata) vs appels mensuels versés → solde de régularisation
 - [ ] **État 301 (DGI)** : récapitulatif trimestriel des retenues ITS/IGR
+  - [ ] Figer le détail des retenues par bulletin (IS, CN, IGR, CNPS) au moment de la paie
   - [ ] `POST /exports/tax-301` avec trimestre/année → XML/tableur normé
-- [ ] **Registre historique** : chaque export enregistré avec hash (audit trail anti-régression)
+- [x] **Registre historique** : chaque export enregistré avec SHA-256, version et chaînage par organisation (`declaration_export`, ajout seul, `GET /exports/declarations/verify`)
 
 ### 5.2 Intégrations Payouts (Mobile Money / Banque)
 

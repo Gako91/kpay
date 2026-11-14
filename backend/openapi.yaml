@@ -1068,6 +1068,142 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /exports/disa/preview:
+    get:
+      tags: [Déclarations]
+      summary: Aperçu de la DISA annuelle (lignes E-DISA et anomalies), sans scellement
+      description: Permission `declaration.export`. Seuls les bulletins approuvés ou payés sont déclarés.
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            example: 2026
+      responses:
+        '200':
+          description: Aperçu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisaPreview'
+        '400':
+          description: Année invalide
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /exports/disa:
+    post:
+      tags: [Déclarations]
+      summary: Générer et sceller le fichier E-DISA de l'année (.xls)
+      description: |
+        Produit le classeur Excel 97-2003 attendu par E-DISA (sans en-tête, 9 colonnes : n° CNPS,
+        nom, prénoms, naissance, embauche, départ, périodicité M/J/H, temps de travail, brut annuel),
+        le dépose dans le stockage objet et l'inscrit au registre (version, SHA-256, chaînage).
+        Refusé (422) tant qu'une anomalie bloquante subsiste. Permission `declaration.export`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [year]
+              properties:
+                year:
+                  type: integer
+                  example: 2026
+      responses:
+        '201':
+          description: Déclaration scellée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  declaration:
+                    $ref: '#/components/schemas/DeclarationExport'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DisaIssue'
+        '422':
+          description: Anomalies bloquantes (corps = DisaPreview) ou aucun bulletin validé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisaPreview'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /exports/declarations:
+    get:
+      tags: [Déclarations]
+      summary: Registre des déclarations scellées de l'organisation
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            example: disa
+      responses:
+        '200':
+          description: Entrées du registre, plus récentes d'abord
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeclarationExport'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /exports/declarations/verify:
+    get:
+      tags: [Déclarations]
+      summary: Vérifier le chaînage du registre (détecte une entrée modifiée ou supprimée)
+      responses:
+        '200':
+          description: Résultat de la vérification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  entries:
+                    type: integer
+                  broken_id:
+                    type: integer
+                  reason:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /exports/declarations/{id}/file:
+    get:
+      tags: [Déclarations]
+      summary: Télécharger le fichier scellé (empreinte vérifiée avant envoi)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fichier archivé ; en-tête X-Content-SHA256
+          content:
+            application/vnd.ms-excel:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Le fichier archivé ne correspond plus à l'empreinte scellée
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1172,6 +1308,77 @@ components:
         bic:
           type: string
           example: BNFACIXX
+        cnps_number:
+          type: string
+          description: N° d'immatriculation CNPS (12 chiffres ; espaces et tirets retirés à l'enregistrement)
+          example: '012345678901'
+        birth_date:
+          type: string
+          format: date
+          description: Date de naissance (requise pour la DISA)
+          example: '1990-03-15'
+        salary_type:
+          type: string
+          enum: [M, J, H]
+          default: M
+          description: Périodicité du salaire (mensuel, journalier, horaire)
+
+    DisaRow:
+      type: object
+      properties:
+        employee_id: { type: integer }
+        cnps_number: { type: string, example: '012345678901' }
+        last_name: { type: string, example: N GUESSAN KONE }
+        first_names: { type: string, example: ADJOA ELOISE }
+        birth_date: { type: string, example: 04/07/1991 }
+        hire_date: { type: string, example: 01/09/2025 }
+        departure_date: { type: string, example: '' }
+        salary_type: { type: string, example: M }
+        work_time: { type: number, example: 12 }
+        annual_gross: { type: integer, example: 5400000 }
+
+    DisaIssue:
+      type: object
+      properties:
+        employee_id: { type: integer }
+        employee_name: { type: string }
+        field: { type: string, example: cnps_number }
+        message: { type: string, example: N° CNPS manquant }
+        blocking: { type: boolean }
+
+    DisaPreview:
+      type: object
+      properties:
+        year: { type: integer }
+        employees: { type: integer }
+        total_gross: { type: integer }
+        blocking_count: { type: integer }
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisaRow'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisaIssue'
+
+    DeclarationExport:
+      type: object
+      properties:
+        id: { type: integer }
+        organization_id: { type: integer }
+        kind: { type: string, example: disa }
+        period: { type: string, example: '2026' }
+        version: { type: integer, example: 1 }
+        file_name: { type: string, example: DISA_2026.xls }
+        content_type: { type: string }
+        sha256: { type: string, description: Empreinte SHA-256 du fichier }
+        prev_hash: { type: string, description: chain_hash de l'entrée précédente de l'organisation }
+        chain_hash: { type: string }
+        row_count: { type: integer }
+        total_amount: { type: integer, description: Brut annuel déclaré (FCFA) }
+        created_by: { type: string }
+        sealed_at: { type: string, format: date-time }
 
     Employee:
       allOf:

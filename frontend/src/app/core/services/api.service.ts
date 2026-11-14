@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse, DisaPreview, DisaSealed, DeclarationExport, ChainCheck } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -23,6 +23,10 @@ export class ApiService {
 
     createEmployee(employee: Partial<Employee>): Observable<Employee> {
         return this.http.post<Employee>(`${this.baseUrl}/employees`, employee);
+    }
+
+    updateEmployee(id: number, employee: Partial<Employee>): Observable<{ success: boolean; message: string }> {
+        return this.http.put<{ success: boolean; message: string }>(`${this.baseUrl}/employees/${id}`, employee);
     }
 
     // --- Contracts ---
@@ -280,5 +284,28 @@ export class ApiService {
 
     updateUser(id: number, input: UserUpdateInput): Observable<{ success: boolean; data: string; message: string }> {
         return this.http.put<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/admin/users/${id}`, input);
+    }
+
+    // --- Déclarations sociales (Pilier 5.1) ---
+    getDisaPreview(year: number): Observable<DisaPreview> {
+        return this.http.get<DisaPreview>(`${this.baseUrl}/exports/disa/preview`, { params: new HttpParams().set('year', year) });
+    }
+
+    exportDisa(year: number): Observable<DisaSealed> {
+        return this.http.post<DisaSealed>(`${this.baseUrl}/exports/disa`, { year });
+    }
+
+    getDeclarations(kind?: string): Observable<DeclarationExport[]> {
+        let params = new HttpParams();
+        if (kind) params = params.set('kind', kind);
+        return this.http.get<DeclarationExport[]>(`${this.baseUrl}/exports/declarations`, { params });
+    }
+
+    verifyDeclarations(): Observable<ChainCheck> {
+        return this.http.get<ChainCheck>(`${this.baseUrl}/exports/declarations/verify`);
+    }
+
+    downloadDeclaration(id: number): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/exports/declarations/${id}/file`, { responseType: 'blob' });
     }
 }

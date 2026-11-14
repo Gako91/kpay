@@ -1,5 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Employee } from '../../core/models/kpay.models';
@@ -33,9 +35,11 @@ import { Employee } from '../../core/models/kpay.models';
               <th>ID</th>
               <th>Nom & Prénom</th>
               <th>Email</th>
+              <th>N° CNPS</th>
               <th>Manager (N+1)</th>
               <th>Parts Fiscales</th>
               <th>Statut</th>
+              @if (canCreateEmployee()) { <th></th> }
             </tr>
           </thead>
           <tbody>
@@ -44,6 +48,9 @@ import { Employee } from '../../core/models/kpay.models';
                 <td class="px-4 py-3.5 font-mono text-xs text-slate-400">#{{ emp.id }}</td>
                 <td class="px-4 py-3.5 font-medium text-slate-900">{{ emp.last_name }} {{ emp.first_name }}</td>
                 <td class="px-4 py-3.5 text-slate-500">{{ emp.email }}</td>
+                <td class="px-4 py-3.5 font-mono text-xs">
+                  @if (emp.cnps_number) { {{ emp.cnps_number }} } @else { <span class="badge badge-amber">À renseigner</span> }
+                </td>
                 <td class="px-4 py-3.5 text-slate-500">{{ managerName(emp.manager_id) }}</td>
                 <td class="px-4 py-3.5">{{ emp.tax_parts }}</td>
                 <td class="px-4 py-3.5">
@@ -51,10 +58,15 @@ import { Employee } from '../../core/models/kpay.models';
                     {{ emp.is_active ? 'Actif' : 'Inactif' }}
                   </span>
                 </td>
+                @if (canCreateEmployee()) {
+                  <td class="px-4 py-3.5 text-right">
+                    <button (click)="openEdit(emp)" class="btn btn-secondary btn-sm">Modifier</button>
+                  </td>
+                }
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                <td colspan="8" class="px-4 py-8 text-center text-slate-400">
                   Aucun employé enregistré pour le moment.
                 </td>
               </tr>
@@ -67,7 +79,7 @@ import { Employee } from '../../core/models/kpay.models';
       @if (showModal()) {
         <div class="modal-overlay">
           <div class="modal">
-            <h2 class="text-lg font-semibold text-slate-900 tracking-tight">Ajouter un Employé</h2>
+            <h2 class="text-lg font-semibold text-slate-900 tracking-tight">{{ editingId() ? 'Modifier l\'employé' : 'Ajouter un Employé' }}</h2>
             <form (ngSubmit)="saveEmployee()" class="space-y-4">
               <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -118,6 +130,28 @@ import { Employee } from '../../core/models/kpay.models';
                   </select>
                 </div>
               </div>
+              <div class="grid grid-cols-3 gap-4">
+                <div>
+                  <label class="label">N° CNPS</label>
+                  <input type="text" [(ngModel)]="newEmployee.cnps_number" name="cnps" class="input font-mono" placeholder="12 chiffres" maxlength="16"/>
+                </div>
+                <div>
+                  <label class="label">Date de naissance</label>
+                  <input type="date" [(ngModel)]="newEmployee.birth_date" name="birthDate" class="input"/>
+                </div>
+                <div>
+                  <label class="label">Périodicité du salaire</label>
+                  <select [(ngModel)]="newEmployee.salary_type" name="salaryType" class="select">
+                    <option value="M">Mensuel</option>
+                    <option value="H">Horaire</option>
+                    <option value="J">Journalier</option>
+                  </select>
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 -mt-2">N° CNPS, date de naissance et périodicité sont requis pour la DISA annuelle.</p>
+              @if (formError()) {
+                <div class="alert alert-error">{{ formError() }}</div>
+              }
               <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" (click)="closeModal()" class="btn btn-secondary">Annuler</button>
                 <button type="submit" class="btn btn-primary">Enregistrer</button>
@@ -136,14 +170,19 @@ export class EmployeesComponent implements OnInit {
     employees = signal<Employee[]>([]);
     employeesById = signal<Map<number, string>>(new Map());
     showModal = signal(false);
+    editingId = signal<number | null>(null);
     errorMessage = signal('');
+    formError = signal('');
 
     canCreateEmployee(): boolean {
         const role = this.authService.currentUser()?.role || '';
         return role === 'admin' || role === 'payroll_officer';
     }
 
-    newEmployee: Partial<Employee> = {
+    newEmployee: Partial<Employee> = this.emptyEmployee();
+
+    private emptyEmployee(): Partial<Employee> {
+        return {
         first_name: '',
         last_name: '',
         email: '',
@@ -153,8 +192,12 @@ export class EmployeesComponent implements OnInit {
         bic: '',
         tax_parts: 1.0,
         manager_id: null as unknown as number,
-        is_active: true
-    };
+        is_active: true,
+        cnps_number: '',
+        birth_date: '',
+        salary_type: 'M'
+        };
+    }
 
     ngOnInit(): void {
         this.loadEmployees();
@@ -181,23 +224,43 @@ export class EmployeesComponent implements OnInit {
     }
 
     openModal(): void {
+        this.editingId.set(null);
+        this.newEmployee = this.emptyEmployee();
+        this.formError.set('');
+        this.showModal.set(true);
+    }
+
+    openEdit(emp: Employee): void {
+        this.editingId.set(emp.id);
+        this.newEmployee = {
+            ...emp,
+            manager_id: emp.manager_id ?? (null as unknown as number),
+            salary_type: emp.salary_type || 'M'
+        };
+        this.formError.set('');
         this.showModal.set(true);
     }
 
     closeModal(): void {
         this.showModal.set(false);
+        this.editingId.set(null);
     }
 
     saveEmployee(): void {
         if (!this.newEmployee.first_name || !this.newEmployee.last_name) return;
 
-        this.apiService.createEmployee(this.newEmployee).subscribe({
+        const id = this.editingId();
+        const payload: Partial<Employee> = { ...this.newEmployee, manager_id: this.newEmployee.manager_id || (null as unknown as number) };
+        const request$: Observable<unknown> = id
+            ? this.apiService.updateEmployee(id, payload)
+            : this.apiService.createEmployee(payload);
+        request$.subscribe({
             next: () => {
                 this.closeModal();
                 this.loadEmployees();
             },
-            error: () => {
-                this.errorMessage.set('Erreur lors de la création de l\'employé. Vérifiez vos informations.');
+            error: (err: HttpErrorResponse) => {
+                this.formError.set(err?.error?.error || err?.error?.message || 'Erreur lors de l\'enregistrement. Vérifiez vos informations.');
             }
         });
     }

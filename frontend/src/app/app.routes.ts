@@ -26,6 +26,7 @@ export const routes: Routes = [
             { path: 'dashboard', component: DashboardComponent },
             { path: 'employees', component: EmployeesComponent },
             { path: 'payroll', component: PayrollComponent },
+            { path: 'declarations', loadComponent: () => import('./features/declarations/declarations.component').then((m) => m.DeclarationsComponent) },
             { path: 'leaves', component: LeavesComponent },
             { path: 'my-payslips', component: MyPayslipsComponent },
             { path: 'my-profile', component: MyProfileComponent },

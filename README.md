@@ -18,6 +18,7 @@
 - **Export de données** :
   - Export CSV des employés et bulletins
   - Export XML SEPA pour les virements bancaires
+- **Déclarations sociales** : DISA annuelle CNPS au format d'entrée E-DISA (.xls), registre scellé (SHA-256 + chaînage)
 - **Documents OpenAPI / Swagger UI** : Spécification complète et interface interactive sur `/docs`
 - **Authentification JWT** : Connexion via `POST /auth/login` (token Bearer JWT, RBAC admin / payroll_officer / accountant / employee), fallback clé API (`X-Api-Key`)
 - **Workflow d'approbation** : Bulletins brouillon → soumis → approuvé → payé
@@ -227,6 +228,11 @@ Routes publiques (aucune authentification) : `/`, `/health*`, `/metrics`, `/docs
 | ------- | ------------------------ | --------------------------------------------- |
 | `GET`   | `/exports/employees/csv` | Exporte les employés en CSV                   |
 | `GET`   | `/exports/sepa`          | Génère un fichier XML SEPA pour les virements |
+| `GET`   | `/exports/disa/preview?year=` | Aperçu DISA : lignes E-DISA et anomalies |
+| `POST`  | `/exports/disa`          | Génère et scelle le fichier E-DISA de l'année |
+| `GET`   | `/exports/declarations`  | Registre des déclarations scellées            |
+| `GET`   | `/exports/declarations/verify` | Vérifie le chaînage du registre         |
+| `GET`   | `/exports/declarations/:id/file` | Télécharge un fichier scellé (empreinte vérifiée) |
 
 ### Exemples de Requêtes
 
@@ -314,6 +320,27 @@ La CI GitHub Actions exécute les deux, puis publie l'image sur
   Les ids numériques des chemins sont remplacés par `:id`. Les requêtes
   refusées avant routage sont regroupées sous `route="_refused"` (401, 429)
   et `route="_preflight"` (CORS).
+
+## 📄 Déclarations sociales (DISA)
+
+`POST /exports/disa {"year": 2026}` produit le fichier d'entrée du logiciel **E-DISA** de la CNPS :
+classeur Excel 97-2003 (`.xls`), sans ligne d'en-tête, une ligne par salarié et 9 colonnes :
+
+| Col. | Donnée | Source KPay |
+| ---- | ------ | ----------- |
+| A | N° CNPS (12 chiffres) | `employee.cnps_number` |
+| B | Nom (majuscules, sans caractères spéciaux) | `last_name` normalisé |
+| C | Prénoms | `first_name` normalisé |
+| D | Date de naissance (JJ/MM/AAAA) | `employee.birth_date` |
+| E | Date d'embauche | début du premier contrat |
+| F | Date de départ (vide si en poste) | fin du dernier contrat, si tous sont clos dans l'année |
+| G | Périodicité M / J / H | `employee.salary_type` |
+| H | Temps de travail | M : mois avec bulletin ; H : heures des relevés |
+| I | Salaire brut annuel | somme des bruts des bulletins approuvés ou payés |
+
+- **Anomalies** : `GET /exports/disa/preview` liste les données manquantes ou mal formées. L'export est refusé (422) tant qu'il reste une anomalie bloquante, y compris un bulletin de l'année encore en brouillon ou soumis. La périodicité journalière (J) n'est pas encore prise en charge : KPay ne suit pas les jours travaillés.
+- **Registre scellé** : chaque export est déposé dans MinIO (`org_<id>/declarations/`) et inscrit dans `declaration_export`, avec un numéro de version, l'empreinte SHA-256 du fichier et un `chain_hash` qui le relie à l'export précédent de l'organisation. La table n'accepte que des ajouts : un trigger refuse `UPDATE` et `DELETE`. `GET /exports/declarations/verify` recalcule la chaîne et signale la première entrée modifiée ; le téléchargement vérifie l'empreinte du fichier (409 s'il a été altéré).
+- **Accès** : permission `declaration.export` (gestionnaire de paie, comptable, admin). Page frontend « Déclarations sociales ».
 
 ## 🔒 Sécurité
 

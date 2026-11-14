@@ -71,6 +71,8 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 		organization_id: ctx.user_org
 		is_active: if 'is_active' in keys { decoded.is_active } else { true }
 		tax_parts: if 'tax_parts' in keys { decoded.tax_parts } else { f32(1.0) }
+		cnps_number: dto.normalize_cnps_number(decoded.cnps_number)
+		salary_type: if decoded.salary_type.len > 0 { decoded.salary_type.to_upper() } else { 'M' }
 	}
 
 	dto.validate_employee(emp) or {
@@ -166,6 +168,20 @@ pub fn (mut app App) update_employee(mut ctx Context, id int) veb.Result {
 		id: id // Forcer l'ID depuis l'URL
 		organization_id: ctx.user_org
 		is_active: if 'is_active' in keys { decoded.is_active } else { existing.is_active }
+		// Champs déclaratifs : conservés s'ils sont absents du corps
+		cnps_number: if 'cnps_number' in keys {
+			dto.normalize_cnps_number(decoded.cnps_number)
+		} else {
+			existing.cnps_number
+		}
+		birth_date: if 'birth_date' in keys { decoded.birth_date } else { existing.birth_date }
+		salary_type: if 'salary_type' in keys && decoded.salary_type.len > 0 {
+			decoded.salary_type.to_upper()
+		} else if existing.salary_type.len > 0 {
+			existing.salary_type
+		} else {
+			'M'
+		}
 	}
 
 	dto.validate_employee(emp) or {

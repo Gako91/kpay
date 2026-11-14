@@ -214,3 +214,59 @@ fn test_migrations_idempotent() ! {
 	sql_files := os.ls('migrations')!.filter(it.ends_with('.sql'))
 	assert after == sql_files.len
 }
+
+// Registre des déclarations : versions par période, chaînage par organisation,
+// isolation entre organisations, et trigger qui interdit UPDATE / DELETE.
+fn test_declaration_registry_sealing() ! {
+	mut r := open_test_db() or { return }
+	defer {
+		r.close()
+	}
+	org_a := new_test_org(mut r)
+	org_b := new_test_org(mut r)
+	entry := fn (org int, sha string) models.DeclarationExport {
+		return models.DeclarationExport{
+			organization_id: org
+			kind:            models.declaration_disa
+			period:          '2026'
+			file_name:       'DISA_2026.xls'
+			object_name:     'org_${org}/declarations/${sha}.xls'
+			content_type:    'application/vnd.ms-excel'
+			sha256:          sha
+			row_count:       2
+			total_amount:    800000
+			created_by:      'test'
+			sealed_at:       '2026-11-14T10:00:00Z'
+		}
+	}
+	first := r.seal_declaration(entry(org_a, 'aaa'))!
+	second := r.seal_declaration(entry(org_a, 'bbb'))!
+	other := r.seal_declaration(entry(org_b, 'ccc'))!
+
+	assert first.id > 0 && second.id > first.id
+	assert first.version == 1 && second.version == 2
+	assert first.prev_hash == ''
+	assert second.prev_hash == first.chain_hash
+	assert second.chain_hash == models.declaration_chain_hash(first.chain_hash, second)
+	// Chaîne propre à chaque organisation
+	assert other.version == 1 && other.prev_hash == ''
+	if _ := r.get_declaration_by_id(second.id, org_b) {
+		assert false, 'une organisation lit le registre d’une autre'
+	}
+
+	// Relecture : le recalcul du chaînage correspond à ce qui est stocké
+	chain := r.get_declaration_chain(org_a)
+	assert chain.len == 2
+	assert chain[1].chain_hash == models.declaration_chain_hash(chain[0].chain_hash, chain[1])
+
+	// Registre en ajout seul
+	mut updated := true
+	r.db.exec_param_many('UPDATE declaration_export SET total_amount = 1 WHERE id = \$1',
+		[first.id.str()]) or { updated = false }
+	assert !updated
+	mut deleted := true
+	r.db.exec_param_many('DELETE FROM declaration_export WHERE id = \$1', [first.id.str()]) or {
+		deleted = false
+	}
+	assert !deleted
+}

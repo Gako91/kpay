@@ -16,4 +16,8 @@ pub:
 	user_id         ?int // Compte utilisateur lié pour l'ESS (/me/...)
 	manager_id      ?int // N+1 direct (validation des congés), même organisation
 	is_active       bool @[default: true]
+	// Déclarations sociales (Pilier 5 — DISA CNPS)
+	cnps_number string // N° d'immatriculation CNPS du salarié (12 chiffres)
+	birth_date  string // Date de naissance 'YYYY-MM-DD' ('' = non renseignée)
+	salary_type string // Périodicité du salaire : 'M' mensuel (défaut), 'J' journalier, 'H' horaire
 }

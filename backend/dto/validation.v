@@ -1,6 +1,7 @@
 module dto
 
 import models
+import time
 
 // ==================== HELPERS ====================
 
@@ -57,6 +58,35 @@ pub fn validate_employee(emp models.Employee) ! {
 	validate_string_field(emp.first_name, 'first_name', 2, 100)!
 	validate_string_field(emp.last_name, 'last_name', 2, 100)!
 	validate_email(emp.email)!
+	if emp.cnps_number.len > 0 && !is_valid_cnps_number(emp.cnps_number) {
+		return error("Validation échouée : 'cnps_number' doit comporter exactement 12 chiffres")
+	}
+	if emp.birth_date.len > 0 {
+		validate_iso_date(emp.birth_date, 'birth_date')!
+	}
+	if emp.salary_type !in ['', 'M', 'J', 'H'] {
+		return error("Validation échouée : 'salary_type' doit valoir M (mensuel), J (journalier) ou H (horaire)")
+	}
+}
+
+// normalize_cnps_number retire espaces, tirets et points d'un n° CNPS saisi.
+pub fn normalize_cnps_number(raw string) string {
+	return raw.replace(' ', '').replace('-', '').replace('.', '').trim_space()
+}
+
+// is_valid_cnps_number vérifie un n° CNPS normalisé : exactement 12 chiffres.
+pub fn is_valid_cnps_number(n string) bool {
+	return n.len == 12 && n.bytes().all(it.is_digit())
+}
+
+// validate_iso_date vérifie une date 'YYYY-MM-DD' existante (ex: pas de 31/02).
+pub fn validate_iso_date(value string, field string) ! {
+	t := time.parse_format(value, 'YYYY-MM-DD') or {
+		return error("Validation échouée : '${field}' doit être une date au format YYYY-MM-DD")
+	}
+	if t.custom_format('YYYY-MM-DD') != value {
+		return error("Validation échouée : '${field}' n'est pas une date valide")
+	}
 }
 
 // ==================== CONTRACTS ====================
