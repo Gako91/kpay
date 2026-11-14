@@ -14,6 +14,8 @@ pub:
 	environment string // dev, staging, prod
 	log_level   string // debug, info, warn, error
 	api_key     string // Clé d'authentification API (header X-Api-Key)
+	// Observabilité : si défini, /metrics exige « Authorization: Bearer <token> »
+	metrics_token string
 	// JWT Authentication
 	jwt_secret           string // Clé secrète de signature des tokens JWT
 	jwt_expiration_hours int // Durée de validité des tokens (heures)
@@ -111,6 +113,7 @@ pub fn load_config() Config {
 		environment: os.getenv_opt('KPAY_ENV') or { 'dev' }
 		log_level: os.getenv_opt('KPAY_LOG_LEVEL') or { 'info' }
 		api_key: os.getenv_opt('KPAY_API_KEY') or { '' }
+		metrics_token: os.getenv_opt('KPAY_METRICS_TOKEN') or { '' }
 		jwt_secret: os.getenv_opt('KPAY_JWT_SECRET') or { '' }
 		jwt_expiration_hours: os.getenv_opt('KPAY_JWT_EXPIRATION_HOURS') or { '24' }.int()
 		cors_origins: os.getenv_opt('KPAY_CORS_ORIGINS') or { '*' }

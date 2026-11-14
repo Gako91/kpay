@@ -49,7 +49,7 @@ jobs:
 
       - name: Unit tests
         working-directory: backend
-        run: v -cc gcc test core/ common/ services/
+        run: v -cc gcc test core/ common/ services/ api/
 
       # Tests contre un vrai PostgreSQL : ids d'insertion, transactions,
       # isolation multi-tenant, migrations rejouables.

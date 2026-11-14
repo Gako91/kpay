@@ -17,6 +17,10 @@ services:
       - KPAY_JWT_EXPIRATION_HOURS=24
       - KPAY_CORS_ORIGINS=*
       - KPAY_LOG_LEVEL=info
+      # Logs structurés : une ligne JSON par événement, avec request_id
+      - KPAY_LOG_FORMAT=json
+      # Si défini, /metrics exige « Authorization: Bearer <token> » (Prometheus)
+      - KPAY_METRICS_TOKEN=${KPAY_COMPOSE_METRICS_TOKEN:-}
       - KPAY_RATE_LIMIT_MAX=300
       - KPAY_RATE_LIMIT_WINDOW=60
       - KPAY_DB_HOST=db

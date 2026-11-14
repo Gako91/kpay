@@ -92,12 +92,17 @@ KPAY_ENV=dev
 
 # Niveau de log (debug, info, warn, error)
 KPAY_LOG_LEVEL=info
+# Format des logs : text (lisible, défaut) ou json (une ligne par événement)
+KPAY_LOG_FORMAT=text
 
-# Clé API pour l'authentification (OBLIGATOIRE)
-KPAY_API_KEY=votre_cle_api_secrete
+# Token exigé par /metrics (Authorization: Bearer <token>) ; vide = public
+KPAY_METRICS_TOKEN=
 
-# Authentification JWT (recommendée) — secret fort en production
+# Authentification JWT (obligatoire) — 32 caractères minimum en production
 KPAY_JWT_SECRET=votre_secret_jwt_long
+
+# Clé API (optionnelle, vide = désactivée) — droits admin sur l'organisation 1
+KPAY_API_KEY=
 KPAY_JWT_EXPIRATION_HOURS=24
 
 # Pool de connexions PostgreSQL (optionnel)
@@ -274,15 +279,45 @@ curl -X POST http://localhost:8080/payroll/run \
 
 ## 🧪 Tests
 
-Exécuter les tests unitaires :
+Tests unitaires (depuis `backend/`) :
 
 ```bash
-v test ./core/
+v test core/ common/ services/ api/
 ```
+
+Tests d'intégration contre un vrai PostgreSQL (ids d'insertion, transactions,
+isolation multi-tenant, migrations). Ils sont ignorés sans `KPAY_TEST_DB_HOST` :
+
+```bash
+docker run -d --rm --name kpay-test-pg -p 127.0.0.1:5433:5432 \
+  -e POSTGRES_USER=kpay -e POSTGRES_PASSWORD=kpay -e POSTGRES_DB=kpay_test postgres:16-alpine
+KPAY_TEST_DB_HOST=127.0.0.1 KPAY_TEST_DB_PORT=5433 v test repository/
+```
+
+La CI GitHub Actions exécute les deux, puis publie l'image sur
+`ghcr.io/gako91/kpay-backend` à chaque push sur `main`.
+
+## 📈 Observabilité
+
+- **Identifiant de requête** : chaque réponse porte un en-tête `X-Request-Id`
+  (repris de la requête s'il est fourni, généré sinon). Il figure dans toutes
+  les lignes de log émises pendant la requête.
+- **Logs** : une ligne `http_request` par requête (méthode, chemin, statut,
+  durée, organisation, utilisateur). Avec `KPAY_LOG_FORMAT=json` (activé dans
+  `compose.yml`), chaque ligne est un objet JSON. Les corps de requête ne sont
+  jamais journalisés.
+- **Métriques Prometheus** sur `GET /metrics` :
+  - `kpay_http_requests_total{method,route,status}`
+  - `kpay_http_request_duration_seconds` (histogramme par méthode et route)
+  - état du pool PostgreSQL (`kpay_db_*`)
+
+  Les ids numériques des chemins sont remplacés par `:id`. Les requêtes
+  refusées avant routage sont regroupées sous `route="_refused"` (401, 429)
+  et `route="_preflight"` (CORS).
 
 ## 🔒 Sécurité
 
-- **Authentification** : Token JWT via `POST /auth/login`, fallback clé API `X-Api-Key` (rôle admin)
+- **Authentification** : Token JWT via `POST /auth/login`, clé API `X-Api-Key` optionnelle (désactivée par défaut, rôle admin sur l'organisation 1)
 - **RBAC** : Rôles `admin`, `payroll_officer`, `accountant`, `employee` — les routes sensibles vérifient les autorisations
 - **Transactions DB** : Les opérations critiques (génération de paie) utilisent des transactions pour garantir l'intégrité des données
 - **Validation des entrées** : Toutes les requêtes sont validées avant traitement

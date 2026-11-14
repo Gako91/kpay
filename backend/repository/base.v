@@ -27,6 +27,13 @@ pub fn new_repository(config common.Config) !Repository {
 	} else {
 		time.Duration(0)
 	}
+	// Masquer les NOTICE PostgreSQL (« column … already exists, skipping » des
+	// ALTER TABLE … IF NOT EXISTS) : libpq les écrit sur stderr, hors du flux de
+	// logs structurés. pg.Config n'expose pas les options de session, mais libpq
+	// lit PGOPTIONS. Une valeur déjà définie par l'opérateur est respectée.
+	if os.getenv('PGOPTIONS') == '' {
+		os.setenv('PGOPTIONS', '-c client_min_messages=warning', true)
+	}
 	mut db := pg.connect(conf_db, pg.PoolConfig{
 		max_open_conns: config.db_pool_max_open
 		max_idle_conns: config.db_pool_max_idle

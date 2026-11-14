@@ -97,9 +97,13 @@ fn main() {
 	spawn services.run_job_worker(job_queue, config)
 	services.log_info('Worker de jobs démarré (backoff exponentiel, retry max 3)')
 
-	// Enregistrement du middleware de logging de requêtes puis d'authentification
-	app.use(handler: app.request_logger)
-	app.use(handler: app.auth_middleware)
+	// Observabilité : identifiant de requête, ligne d'accès et métriques HTTP.
+	// observe_request délègue à l'authentification ; observe_response s'exécute
+	// après chaque handler.
+	app.http_metrics = api.new_http_metrics()
+	app.metrics_token = config.metrics_token
+	app.use(handler: app.observe_request)
+	app.use(handler: app.observe_response, after: true)
 
 	// Erreur journalisée plutôt que propagée : la propagation `!` dans fn main déclenche
 	// "V panic: option/result propagation failed" (masque la vraie cause en build -prod).

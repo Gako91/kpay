@@ -8,6 +8,8 @@ import common
 import models
 import json2
 import crypto.hmac
+import rand
+import time
 
 // Application principale
 @[heap]
@@ -30,6 +32,9 @@ pub mut:
 	profile_svc  services.ProfileService // Service profils employés (workflow validation RH)
 	leave_svc    services.LeaveService // Service congés (workflow N+1 → RH, soldes)
 	jobs_svc     services.JobWorker // File de traitement asynchrone (Pilier 4, SSE)
+	// Observabilité
+	http_metrics  &HttpMetrics = unsafe { nil } // Compteurs et durées HTTP (/metrics)
+	metrics_token string // Si défini, /metrics exige « Authorization: Bearer <token> »
 }
 
 // Contexte par requête
@@ -40,6 +45,9 @@ pub mut:
 	user_role  string // Rôle de l'utilisateur authentifié
 	user_org   int // Organisation (tenant) de l'utilisateur authentifié
 	user_perms []string // Permissions du rôle courant (RBAC, Pilier 3)
+	// Observabilité
+	request_id string // Identifiant de corrélation (en-tête X-Request-Id)
+	started_ns u64    // Début de traitement (horloge monotone, ns)
 }
 
 // has_role vérifie que l'utilisateur courant possède l'un des rôles requis.
@@ -86,22 +94,87 @@ fn (app &App) set_cors_headers(mut ctx Context) {
 		}) or {}
 	}
 	ctx.res.header.set_custom('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS') or {}
-	ctx.res.header.set_custom('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Api-Key') or {}
+	ctx.res.header.set_custom('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Api-Key, X-Request-Id') or {}
+	ctx.res.header.set_custom('Access-Control-Expose-Headers', 'X-Request-Id') or {}
 	ctx.res.header.set_custom('Access-Control-Max-Age', '86400') or {}
 }
 
-// request_logger journalise chaque requête HTTP au niveau debug.
-// Enregistré en premier pour s'exécuter avant l'authentification.
-pub fn (app &App) request_logger(mut ctx Context) bool {
-	body := ctx.req.data
-	body_preview := if body.len > 0 {
-		limit := if body.len > 256 { 256 } else { body.len }
-		' body=${body[0..limit]}'
-	} else {
-		''
+// ==================== OBSERVABILITÉ ====================
+
+// Routes techniques journalisées en debug seulement (sondes, scraping Prometheus).
+const quiet_paths = ['/health', '/health/liveness', '/health/readiness', '/metrics']
+
+// valid_request_id accepte un X-Request-Id entrant (proxy, client) s'il est court
+// et sans caractères susceptibles de polluer les logs.
+fn valid_request_id(id string) bool {
+	if id.len == 0 || id.len > 64 {
+		return false
 	}
-	services.log_debug('→ ${ctx.req.method} ${ctx.req.url}${body_preview}')
+	for c in id {
+		if !(c.is_alnum() || c == `-` || c == `_` || c == `.`) {
+			return false
+		}
+	}
 	return true
+}
+
+// observe_request est le premier middleware : il attribue l'identifiant de requête
+// (repris de X-Request-Id ou généré), le renvoie au client, puis délègue à
+// l'authentification. Une requête refusée (401, 429, preflight CORS) ne passe pas
+// par les middlewares « after » de veb : elle est donc finalisée ici.
+pub fn (mut app App) observe_request(mut ctx Context) bool {
+	ctx.started_ns = time.sys_mono_now()
+	incoming := ctx.req.header.get_custom('X-Request-Id') or { '' }
+	ctx.request_id = if valid_request_id(incoming) { incoming } else { rand.uuid_v4() }
+	ctx.res.header.set_custom('X-Request-Id', ctx.request_id) or {}
+	services.set_request_id(ctx.request_id)
+
+	if !app.auth_middleware(mut ctx) {
+		route := if ctx.req.method == .options { '_preflight' } else { '_refused' }
+		app.finish_request(mut ctx, route)
+		return false
+	}
+	return true
+}
+
+// observe_response (middleware « after ») finalise une requête traitée par un handler.
+pub fn (mut app App) observe_response(mut ctx Context) bool {
+	app.finish_request(mut ctx, route_label(ctx.req.url))
+	return true
+}
+
+// finish_request écrit la ligne d'accès et met à jour les métriques HTTP.
+// `route` est le libellé de métrique : chemin normalisé, ou `_refused` /
+// `_preflight` pour les requêtes arrêtées avant le routage (évite qu'un client
+// non authentifié ne crée un label par URL inventée).
+fn (mut app App) finish_request(mut ctx Context, route string) {
+	seconds := f64(time.sys_mono_now() - ctx.started_ns) / 1e9
+	status := ctx.res.status_code
+	method := ctx.req.method.str()
+	if app.http_metrics != unsafe { nil } {
+		app.http_metrics.observe(method, route, status, seconds)
+	}
+	path := ctx.req.url.all_before('?')
+	mut fields := map[string]json2.Any{}
+	fields['method'] = method
+	fields['path'] = path
+	fields['status'] = status
+	fields['duration_ms'] = f64(i64(seconds * 100_000)) / 100.0
+	if ctx.user_org > 0 {
+		fields['org'] = ctx.user_org
+	}
+	if ctx.user_sub.len > 0 {
+		fields['user'] = ctx.user_sub
+	}
+	level := if status >= 500 {
+		services.LogLevel.error_
+	} else if path in quiet_paths || ctx.req.method == .options {
+		services.LogLevel.debug
+	} else {
+		services.LogLevel.info
+	}
+	services.log_fields(level, 'http_request', fields)
+	services.clear_request_id()
 }
 
 // auth_middleware vérifie l'authentification JWT (Bearer) ou la clé API.
@@ -246,6 +319,15 @@ pub fn (mut app App) health_readiness(mut ctx Context) veb.Result {
 // metrics GET /metrics - Exposition des métriques de l'application au format Prometheus
 @['/metrics']
 pub fn (mut app App) metrics(mut ctx Context) veb.Result {
+	// Protection optionnelle (KPAY_METRICS_TOKEN) : Prometheus envoie le token en Bearer.
+	if app.metrics_token.len > 0 {
+		auth := ctx.req.header.get_custom('Authorization') or { '' }
+		provided := if auth.starts_with('Bearer ') { auth['Bearer '.len..].trim_space() } else { '' }
+		if !hmac.equal(provided.bytes(), app.metrics_token.bytes()) {
+			ctx.res.set_status(.unauthorized)
+			return ctx.text('unauthorized\n')
+		}
+	}
 	stats := app.repo.pool_stats()
 	mut body := "# HELP kpay_up Statut de l'application (1 = en ligne)\n"
 	body += '# TYPE kpay_up gauge\n'
@@ -270,6 +352,10 @@ pub fn (mut app App) metrics(mut ctx Context) veb.Result {
 	body += "# HELP kpay_db_wait_count Nombre cumulatif d'attentes de connexions\n"
 	body += '# TYPE kpay_db_wait_count counter\n'
 	body += 'kpay_db_wait_count ${stats.wait_count}\n'
+
+	if app.http_metrics != unsafe { nil } {
+		body += '\n' + app.http_metrics.render()
+	}
 
 	ctx.res.header.set_custom('Content-Type', 'text/plain; version=0.0.4; charset=utf-8') or {}
 	return ctx.text(body)

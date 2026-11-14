@@ -18,9 +18,9 @@ Avant de construire les fonctionnalités, sécuriser le socle.
   - [x] Build Docker + push image (GHCR : `ghcr.io/gako91/kpay-backend`, tags sha + latest sur main), job frontend (build prod)
   - [x] Tests backend automatisés dans la CI (core/common/services, dernière version de V)
   - [x] Tests d'intégration avec PostgreSQL dans la CI (`repository/integration_test.v` : ids d'insertion, transactions, isolation multi-tenant, migrations)
-- [ ] **Observabilité**
-  - [ ] Logs structurés JSON, tracing des requêtes (correlation id)
-  - [ ] Métriques Prometheus sur `/metrics` (durées par route, erreurs, compteurs)
+- [x] **Observabilité**
+  - [x] Logs structurés JSON (`KPAY_LOG_FORMAT=json`), tracing des requêtes : `X-Request-Id` repris ou généré, présent dans tous les logs de la requête
+  - [x] Métriques Prometheus sur `/metrics` : `kpay_http_requests_total` (méthode, route, statut) et histogramme `kpay_http_request_duration_seconds`, en plus du pool DB ; protection optionnelle par `KPAY_METRICS_TOKEN`
 
 ---
 
