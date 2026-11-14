@@ -14,8 +14,8 @@ Avant de construire les fonctionnalités, sécuriser le socle.
   - [x] Ajouter une clause `WHERE organization_id = <tenant courant>` sur 100 % des repository
   - [x] Restreindre le seed / les routes de gestion à l'organisation active
   - [x] Endpoint d'administration : création d'organisation + utilisateur admin dédié
-- [ ] **Pipeline CI/CD renforcé**
-  - [ ] Build Docker + push image (GHCR), job frontend (build prod) déjà présent — job `docker` en place, à cocher après le premier push réussi sur main
+- [x] **Pipeline CI/CD renforcé**
+  - [x] Build Docker + push image (GHCR : `ghcr.io/gako91/kpay-backend`, tags sha + latest sur main), job frontend (build prod)
   - [x] Tests backend automatisés dans la CI (core/common/services, dernière version de V)
   - [x] Tests d'intégration avec PostgreSQL dans la CI (`repository/integration_test.v` : ids d'insertion, transactions, isolation multi-tenant, migrations)
 - [ ] **Observabilité**
