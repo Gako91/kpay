@@ -78,7 +78,7 @@ pub fn load_dotenv(filepath string) {
 	}
 }
 
-// Recherche et charge le fichier .env : d'abord le CWD (backend/), puis les répertoires
+// load_dotenv_upwards Recherche et charge le fichier .env : d'abord le CWD (backend/), puis les répertoires
 // parents jusqu'à 6 niveaux (le .env du projet racine quand on lance depuis backend/).
 fn load_dotenv_upwards() {
 	mut dir := os.getwd()

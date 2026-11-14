@@ -19,7 +19,7 @@ pub fn format_money(amount i64, currency string) string {
 	return '${full_str} ${symbol}'
 }
 
-// Ajoute les séparateurs de milliers
+// format_with_thousands Ajoute les séparateurs de milliers
 fn format_with_thousands(n i64) string {
 	s := '${n}'
 	if s.len <= 3 {

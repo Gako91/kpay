@@ -87,7 +87,7 @@ pub fn verify_jwt(token string, secret string) !JwtClaims {
 	return claims
 }
 
-// url_encode encode en pourcent une chaîne pour l'utilisation dans une requête HTTP.
+// url_encode_impl encode en pourcent une chaîne pour l'utilisation dans une requête HTTP.
 fn url_encode_impl(s string) string {
 	mut out := ''
 	for c in s {
