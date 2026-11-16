@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -7,7 +8,7 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
 @Component({
     selector: 'app-leaves',
     standalone: true,
-    imports: [FormsModule],
+    imports: [FormsModule, IconComponent],
     template: `
     <div class="space-y-6">
       <div class="page-head">
@@ -96,12 +97,16 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
                 <td class="px-4 py-3.5">
                   @if (r.leave_type === 'maladie') {
                     @if (r.justificatif_path) {
-                      <button (click)="downloadJustificatif(r.id)" class="text-xs font-medium text-blue-600 hover:underline">Voir PDF</button>
+                      <button (click)="downloadJustificatif(r.id)" class="btn btn-icon btn-secondary" title="Voir le justificatif (PDF)" aria-label="Voir le justificatif (PDF)"><app-icon name="document"/></button>
                     } @else {
-                      <label class="text-xs font-medium text-slate-500 cursor-pointer hover:text-blue-600">
-                        {{ isMine(r) ? 'Joindre' : '—' }}
-                        <input type="file" accept="application/pdf" class="hidden" (change)="uploadJustificatif($event, r.id)"/>
-                      </label>
+                      @if (isMine(r)) {
+                        <label class="btn btn-icon btn-secondary cursor-pointer" title="Joindre le justificatif (PDF, 1 Mo max.)" aria-label="Joindre le justificatif (PDF, 1 Mo max.)">
+                          <app-icon name="upload"/>
+                          <input type="file" accept="application/pdf" class="hidden" (change)="uploadJustificatif($event, r.id)"/>
+                        </label>
+                      } @else {
+                        <span class="text-xs text-slate-300">—</span>
+                      }
                     }
                   } @else {
                     <span class="text-xs text-slate-300">—</span>
@@ -110,15 +115,15 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
                 <td class="px-4 py-3.5">
                   <div class="flex gap-1.5 justify-end">
                     @if (r.status === 'en_attente' && canDecide(r, 'mgr')) {
-                      <button (click)="mgrDecision(r.id, 'approve')" class="btn btn-sm btn-secondary">Valider N+1</button>
-                      <button (click)="mgrDecision(r.id, 'reject')" class="btn btn-sm btn-danger">Refuser</button>
+                      <button (click)="mgrDecision(r.id, 'approve')" class="btn btn-icon btn-success" title="Valider (N+1)" aria-label="Valider (N+1)"><app-icon name="check"/></button>
+                      <button (click)="mgrDecision(r.id, 'reject')" class="btn btn-icon btn-danger" title="Refuser (N+1)" aria-label="Refuser (N+1)"><app-icon name="close"/></button>
                     }
                     @if (r.status === 'valide_mgr' && canManage()) {
-                      <button (click)="rhDecision(r.id, 'approve')" class="btn btn-sm btn-secondary">Approuver (RH)</button>
-                      <button (click)="rhDecision(r.id, 'reject')" class="btn btn-sm btn-danger">Refuser (RH)</button>
+                      <button (click)="rhDecision(r.id, 'approve')" class="btn btn-icon btn-success" title="Approuver (RH)" aria-label="Approuver (RH)"><app-icon name="check"/></button>
+                      <button (click)="rhDecision(r.id, 'reject')" class="btn btn-icon btn-danger" title="Refuser (RH)" aria-label="Refuser (RH)"><app-icon name="close"/></button>
                     }
                     @if (canManage() && r.status === 'en_attente') {
-                      <button (click)="rhDecision(r.id, 'approve')" class="btn btn-sm btn-secondary" title="Décision RH directe (sans N+1)">Décider RH</button>
+                      <button (click)="rhDecision(r.id, 'approve')" class="btn btn-icon btn-secondary" title="Approuver directement (RH, sans N+1)" aria-label="Approuver directement (RH, sans N+1)"><app-icon name="shield"/></button>
                     }
                     @if (r.status === 'approuve' || r.status === 'refuse') {
                       <span class="text-xs text-slate-400">{{ r.status === 'approuve' ? (r.approved_by || '') : (r.approved_by_mgr || r.approved_by || '') }}</span>

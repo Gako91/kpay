@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
@@ -7,7 +8,7 @@ import { Payslip } from '../../core/models/kpay.models';
 @Component({
     selector: 'app-my-payslips',
     standalone: true,
-    imports: [FormsModule, CommonModule],
+    imports: [FormsModule, CommonModule, IconComponent],
     template: `
     <div class="space-y-6">
       <!-- En-tete -->
@@ -81,9 +82,8 @@ import { Payslip } from '../../core/models/kpay.models';
                 </td>
                 <td class="px-4 py-3.5 text-right">
                   <button (click)="downloadPdf(p.id)" [disabled]="downloading() === p.id"
-                          class="btn btn-sm btn-secondary disabled:opacity-50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    {{ downloading() === p.id ? '...' : 'PDF' }}
+                          class="btn btn-icon btn-secondary disabled:opacity-50" title="Télécharger le bulletin (PDF)" aria-label="Télécharger le bulletin (PDF)">
+                    <app-icon name="download"/>
                   </button>
                 </td>
               </tr>

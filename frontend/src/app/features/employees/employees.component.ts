@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -10,7 +11,7 @@ import { EmployeeFileComponent } from './employee-file.component';
 @Component({
     selector: 'app-employees',
     standalone: true,
-    imports: [FormsModule, EmployeeFileComponent],
+    imports: [FormsModule, EmployeeFileComponent, IconComponent],
     template: `
     <div class="space-y-6">
       @if (errorMessage()) {
@@ -68,10 +69,10 @@ import { EmployeeFileComponent } from './employee-file.component';
                   </span>
                 </td>
                 <td class="px-4 py-3.5">
-                  <div class="flex flex-col sm:flex-row gap-1.5 justify-end items-end">
-                    <button (click)="fileOf.set(emp)" class="btn btn-secondary btn-sm">Dossier</button>
+                  <div class="flex gap-1.5 justify-end">
+                    <button (click)="fileOf.set(emp)" class="btn btn-icon btn-secondary" title="Dossier (contrats, primes, heures)" aria-label="Dossier (contrats, primes, heures)"><app-icon name="folder"/></button>
                     @if (canCreateEmployee()) {
-                      <button (click)="openEdit(emp)" class="btn btn-secondary btn-sm">Modifier</button>
+                      <button (click)="openEdit(emp)" class="btn btn-icon btn-secondary" title="Modifier la fiche" aria-label="Modifier la fiche"><app-icon name="edit"/></button>
                     }
                   </div>
                 </td>

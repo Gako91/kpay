@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { UserSsoLink } from '../../core/models/kpay.models';
@@ -6,7 +7,7 @@ import { UserSsoLink } from '../../core/models/kpay.models';
 @Component({
     selector: 'app-security',
     standalone: true,
-    imports: [FormsModule],
+    imports: [FormsModule, IconComponent],
     template: `
     <div class="space-y-6 max-w-2xl">
       <div class="page-head">
@@ -122,7 +123,7 @@ import { UserSsoLink } from '../../core/models/kpay.models';
                     <td class="capitalize font-medium text-slate-700">{{ link.provider }}</td>
                     <td class="text-slate-500">{{ link.email }}</td>
                     <td class="text-right">
-                      <button (click)="unlink(link)" class="btn btn-danger btn-sm">Détacher</button>
+                      <button (click)="unlink(link)" class="btn btn-icon btn-danger" title="Détacher ce fournisseur" aria-label="Détacher ce fournisseur"><app-icon name="unlink"/></button>
                     </td>
                   </tr>
                 }

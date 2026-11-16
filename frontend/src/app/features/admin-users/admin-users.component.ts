@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -7,7 +8,7 @@ import { User } from '../../core/models/kpay.models';
 @Component({
     selector: 'app-admin-users',
     standalone: true,
-    imports: [FormsModule],
+    imports: [FormsModule, IconComponent],
     template: `
     <div class="space-y-6 max-w-5xl">
       <div class="page-head flex items-end justify-between gap-4">
@@ -103,11 +104,10 @@ import { User } from '../../core/models/kpay.models';
                 </td>
                 <td class="px-4 py-3 text-right">
                   @if (user.id !== currentUserId()) {
-                    <button
-                      (click)="toggleActive(user)"
-                      class="btn btn-secondary btn-sm"
-                    >
-                      {{ user.is_active ? 'Suspendre' : 'Réactiver' }}
+                    <button (click)="toggleActive(user)" class="btn btn-icon btn-secondary"
+                            [title]="user.is_active ? 'Suspendre le compte' : 'Réactiver le compte'"
+                            [attr.aria-label]="user.is_active ? 'Suspendre le compte' : 'Réactiver le compte'">
+                      <app-icon [name]="user.is_active ? 'pause' : 'play'"/>
                     </button>
                   }
                 </td>

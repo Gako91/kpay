@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
@@ -7,7 +8,7 @@ import { Job, MissingPayslip, Payslip, PayrollBook } from '../../core/models/kpa
 @Component({
     selector: 'app-payroll',
     standalone: true,
-    imports: [FormsModule, DecimalPipe],
+    imports: [FormsModule, DecimalPipe, IconComponent],
     template: `
     <div class="space-y-6">
       <div class="page-head">
@@ -98,16 +99,16 @@ import { Job, MissingPayslip, Payslip, PayrollBook } from '../../core/models/kpa
                   <div class="flex gap-1.5 justify-end">
                     @if (p.status === 'brouillon' || p.status === 'rejete') {
                       @if (p.status === 'brouillon') {
-                        <button (click)="recalculate(p.id)" class="btn btn-sm btn-secondary" title="Recalculer avec le contrat, les primes et les règles actuels">Recalculer</button>
+                        <button (click)="recalculate(p.id)" class="btn btn-icon btn-secondary" title="Recalculer (contrat, primes et règles actuels)" aria-label="Recalculer (contrat, primes et règles actuels)"><app-icon name="recalc"/></button>
                       }
-                      <button (click)="submit(p.id)" class="btn btn-sm btn-secondary">Soumettre</button>
+                      <button (click)="submit(p.id)" class="btn btn-icon btn-secondary" title="Soumettre au comptable" aria-label="Soumettre au comptable"><app-icon name="send"/></button>
                     }
                     @if (p.status === 'soumis') {
-                      <button (click)="approve(p.id)" class="btn btn-sm btn-secondary">Approuver</button>
-                      <button (click)="reject(p.id)" class="btn btn-sm btn-danger">Rejeter</button>
+                      <button (click)="approve(p.id)" class="btn btn-icon btn-success" title="Approuver" aria-label="Approuver"><app-icon name="check"/></button>
+                      <button (click)="reject(p.id)" class="btn btn-icon btn-danger" title="Rejeter (retour en brouillon)" aria-label="Rejeter (retour en brouillon)"><app-icon name="close"/></button>
                     }
                     @if (p.status === 'approuve') {
-                      <button (click)="pay(p.id)" class="btn btn-sm btn-success">Payer</button>
+                      <button (click)="pay(p.id)" class="btn btn-icon btn-success" title="Marquer comme payé" aria-label="Marquer comme payé"><app-icon name="pay"/></button>
                     }
                   </div>
                 </td>
@@ -243,8 +244,8 @@ export class PayrollComponent implements OnInit {
         this.successMessage.set('');
         this.apiService.generateEmployeePayslip(employeeId, Number(this.selectedMonth), Number(this.selectedYear)).subscribe({
             next: () => {
-                this.successMessage.set(`Bulletin de ${name} généré (brouillon).`);
                 this.loadPayslips();
+                this.successMessage.set(`Bulletin de ${name} généré (brouillon).`);
             },
             error: (err) => this.errorMessage.set(this.extractError(err) || 'Génération impossible.')
         });
@@ -370,8 +371,9 @@ export class PayrollComponent implements OnInit {
         this.successMessage.set('');
         action().subscribe({
             next: () => {
-                this.successMessage.set(successMsg);
+                // loadPayslips efface les messages : la confirmation est posée après
                 this.loadPayslips();
+                this.successMessage.set(successMsg);
             },
             error: (err: any) => this.errorMessage.set(this.extractError(err) || 'Action impossible sur ce bulletin.')
         });

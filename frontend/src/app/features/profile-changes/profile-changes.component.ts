@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
@@ -7,7 +8,7 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
 @Component({
     selector: 'app-profile-changes',
     standalone: true,
-    imports: [FormsModule, CommonModule],
+    imports: [FormsModule, CommonModule, IconComponent],
     template: `
     <div class="space-y-6">
       <!-- En-tete -->
@@ -74,12 +75,10 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
                   </td>
                   <td class="px-4 py-3.5 text-right whitespace-nowrap">
                     @if (req.status === 'en_attente') {
-                      <button (click)="approve(req.id)" [disabled]="busy() === req.id" class="btn btn-sm btn-secondary mr-2 disabled:opacity-50">
-                        Valider
-                      </button>
-                      <button (click)="reject(req.id)" [disabled]="busy() === req.id" class="btn btn-sm btn-danger disabled:opacity-50">
-                        Refuser
-                      </button>
+                      <div class="flex gap-1.5 justify-end">
+                        <button (click)="approve(req.id)" [disabled]="busy() === req.id" class="btn btn-icon btn-success disabled:opacity-50" title="Valider la modification" aria-label="Valider la modification"><app-icon name="check"/></button>
+                        <button (click)="reject(req.id)" [disabled]="busy() === req.id" class="btn btn-icon btn-danger disabled:opacity-50" title="Refuser" aria-label="Refuser"><app-icon name="close"/></button>
+                      </div>
                     } @else {
                       <span class="text-xs text-slate-400">Traité</span>
                     }

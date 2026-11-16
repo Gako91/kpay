@@ -27,6 +27,18 @@
     @apply text-xs;
     padding: 0.375rem 0.625rem;
   }
+  /* Bouton d'action à pictogramme (colonnes Actions) : carré, libellé en infobulle */
+  .btn-icon {
+    @apply h-8 w-8 shrink-0 justify-center;
+    padding: 0;
+  }
+  /* Sans texte, la couleur distingue valider / refuser (contour discret, thème monochrome conservé) */
+  .btn-icon.btn-success {
+    @apply bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50;
+  }
+  .btn-icon.btn-danger {
+    @apply bg-white border border-rose-300 text-rose-700 hover:bg-rose-50;
+  }
   .btn-primary {
     @apply bg-slate-900 text-white hover:bg-slate-700;
   }

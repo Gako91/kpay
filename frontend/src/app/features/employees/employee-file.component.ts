@@ -1,4 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -14,7 +15,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
 @Component({
     selector: 'app-employee-file',
     standalone: true,
-    imports: [FormsModule, DecimalPipe],
+    imports: [FormsModule, DecimalPipe, IconComponent],
     template: `
     <div class="modal-overlay">
       <div class="modal max-w-3xl!">
@@ -60,11 +61,11 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
                       @if (closingId() === c.id) {
                         <div class="flex gap-1.5 justify-end items-center">
                           <input type="date" [(ngModel)]="closingDate" name="closingDate" class="input w-auto"/>
-                          <button (click)="endContract(c)" class="btn btn-sm btn-danger">Clore</button>
-                          <button (click)="closingId.set(null)" class="btn btn-sm btn-secondary">Annuler</button>
+                          <button (click)="endContract(c)" class="btn btn-icon btn-danger" title="Confirmer la fin du contrat" aria-label="Confirmer la fin du contrat"><app-icon name="check"/></button>
+                          <button (click)="closingId.set(null)" class="btn btn-icon btn-secondary" title="Annuler" aria-label="Annuler"><app-icon name="close"/></button>
                         </div>
                       } @else {
-                        <button (click)="closingId.set(c.id); closingDate = ''" class="btn btn-sm btn-secondary">Clore…</button>
+                        <button (click)="closingId.set(c.id); closingDate = ''" class="btn btn-icon btn-secondary" title="Clore le contrat…" aria-label="Clore le contrat…"><app-icon name="end"/></button>
                       }
                     }
                   </td>
@@ -116,7 +117,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
                   <td class="px-4 py-3 num" [class.text-rose-600]="a.amount < 0">{{ a.amount | number:'1.0-0' }}</td>
                   <td class="px-4 py-3 text-right">
                     @if (canEdit) {
-                      <button (click)="deleteAdjustment(a)" class="btn btn-sm btn-secondary">Supprimer</button>
+                      <button (click)="deleteAdjustment(a)" class="btn btn-icon btn-secondary" title="Supprimer" aria-label="Supprimer"><app-icon name="trash"/></button>
                     }
                   </td>
                 </tr>
@@ -177,8 +178,8 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
                   <td class="px-4 py-3 num">{{ t.overtime_h }}</td>
                   <td class="px-4 py-3 text-right">
                     @if (canEdit) {
-                      <button (click)="editTimesheet(t)" class="btn btn-sm btn-secondary">Modifier</button>
-                      <button (click)="deleteTimesheet(t)" class="btn btn-sm btn-secondary ml-1.5">Supprimer</button>
+                      <button (click)="editTimesheet(t)" class="btn btn-icon btn-secondary" title="Modifier" aria-label="Modifier"><app-icon name="edit"/></button>
+                      <button (click)="deleteTimesheet(t)" class="btn btn-icon btn-secondary ml-1.5" title="Supprimer" aria-label="Supprimer"><app-icon name="trash"/></button>
                     }
                   </td>
                 </tr>

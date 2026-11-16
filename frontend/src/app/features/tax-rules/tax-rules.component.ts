@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -7,7 +8,7 @@ import { TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, TaxLine 
 @Component({
     selector: 'app-tax-rules',
     standalone: true,
-    imports: [FormsModule],
+    imports: [FormsModule, IconComponent],
     template: `
     <div class="space-y-6">
       <div class="page-head">
@@ -80,9 +81,9 @@ import { TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, TaxLine 
                   </td>
                   <td class="px-4 py-3.5">
                     <div class="flex gap-1.5 justify-end">
-                      <button (click)="openEditComponent(c)" class="btn btn-sm btn-secondary" [attr.disabled]="!canEdit() ? '' : null">Modifier</button>
-                      <button (click)="toggleComponent(c)" class="btn btn-sm" [class]="c.is_active ? 'btn-secondary' : 'btn-primary'">
-                        {{ c.is_active ? 'Désactiver' : 'Activer' }}
+                      <button (click)="openEditComponent(c)" class="btn btn-icon btn-secondary" [attr.disabled]="!canEdit() ? '' : null" title="Modifier" aria-label="Modifier"><app-icon name="edit"/></button>
+                      <button (click)="toggleComponent(c)" class="btn btn-icon" [class]="c.is_active ? 'btn-secondary' : 'btn-primary'" [title]="c.is_active ? 'Désactiver' : 'Activer'" [attr.aria-label]="c.is_active ? 'Désactiver' : 'Activer'">
+                        <app-icon name="power"/>
                       </button>
                     </div>
                   </td>
@@ -138,9 +139,9 @@ import { TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, TaxLine 
                   </td>
                   <td class="px-4 py-3.5">
                     <div class="flex gap-1.5 justify-end">
-                      <button (click)="openEditBracket(b)" class="btn btn-sm btn-secondary" [attr.disabled]="!canEdit() ? '' : null">Modifier</button>
-                      <button (click)="toggleBracket(b)" class="btn btn-sm" [class]="b.is_active ? 'btn-secondary' : 'btn-primary'">
-                        {{ b.is_active ? 'Désactiver' : 'Activer' }}
+                      <button (click)="openEditBracket(b)" class="btn btn-icon btn-secondary" [attr.disabled]="!canEdit() ? '' : null" title="Modifier" aria-label="Modifier"><app-icon name="edit"/></button>
+                      <button (click)="toggleBracket(b)" class="btn btn-icon" [class]="b.is_active ? 'btn-secondary' : 'btn-primary'" [title]="b.is_active ? 'Désactiver' : 'Activer'" [attr.aria-label]="b.is_active ? 'Désactiver' : 'Activer'">
+                        <app-icon name="power"/>
                       </button>
                     </div>
                   </td>

@@ -1,4 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { IconComponent } from '../../shared/icon.component';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -10,7 +11,7 @@ import { ChainCheck, DeclarationExport, DisaIssue, DisaPreview } from '../../cor
 @Component({
     selector: 'app-declarations',
     standalone: true,
-    imports: [FormsModule, DecimalPipe, DatePipe, RouterLink],
+    imports: [FormsModule, DecimalPipe, DatePipe, RouterLink, IconComponent],
     template: `
     <div class="space-y-6">
       <div class="page-head">
@@ -154,7 +155,7 @@ import { ChainCheck, DeclarationExport, DisaIssue, DisaPreview } from '../../cor
                 <td class="px-4 py-3 num">{{ d.total_amount | number:'1.0-0' }}</td>
                 <td class="px-4 py-3 font-mono text-xs text-slate-400" [title]="d.sha256">{{ d.sha256.slice(0, 16) }}…</td>
                 <td class="px-4 py-3 text-right">
-                  <button (click)="download(d)" class="btn btn-secondary btn-sm">Télécharger</button>
+                  <button (click)="download(d)" class="btn btn-icon btn-secondary" title="Télécharger le fichier scellé" aria-label="Télécharger le fichier scellé"><app-icon name="download"/></button>
                 </td>
               </tr>
             } @empty {
