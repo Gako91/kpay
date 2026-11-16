@@ -37,24 +37,80 @@ struct EmpPayoutTask {
 
 // CalcOut achemine le résultat d'un calcul fan-out vers l'agrégateur.
 struct CalcOut {
-	idx    int
-	result core.CalculationResult
+	idx      int
+	result   core.CalculationResult
+	employer []core.TaxLine // cotisations patronales (figées avec le bulletin)
+}
+
+// compute_payslip calcule un bulletin (fonction pure) : résultat salarial et
+// cotisations patronales, à partir des règles déjà sélectionnées pour la période.
+fn compute_payslip(contract models.Contract, adjustments []models.Adjustment, tax_parts f32, use_config bool, eff_components []models.TaxComponent, eff_brackets []models.TaxBracket, rules []models.TaxRule) (core.CalculationResult, []core.TaxLine) {
+	if use_config {
+		result := core.compute_payslip_configurable(contract, eff_components, eff_brackets,
+			adjustments, tax_parts)
+		employer, _ := core.employer_contributions_configurable(eff_components, result.gross_pay)
+		return result, employer
+	}
+	result := core.calculate_pay_full_ci(contract, rules, adjustments, tax_parts)
+	employer, _ := core.calculate_employer_contributions_ci(rules, result.gross_pay)
+	return result, employer
+}
+
+// payslip_lines convertit le détail d'un calcul en lignes figées du bulletin
+// (retenues salariales puis cotisations patronales, dans l'ordre du calcul).
+pub fn payslip_lines(salarial []core.TaxLine, patronal []core.TaxLine) []models.PayslipLine {
+	mut lines := []models.PayslipLine{cap: salarial.len + patronal.len}
+	for group in [salarial, patronal] {
+		for t in group {
+			lines << models.PayslipLine{
+				position: lines.len + 1
+				code: t.code
+				label: t.name
+				share: if t.share.len > 0 { t.share } else { core.share_salarial }
+				base: t.base
+				rate: t.rate
+				amount: t.amount
+			}
+		}
+	}
+	return lines
+}
+
+// lines_to_tax_lines reconstitue le détail (salarial, patronal, total patronal)
+// à partir des lignes figées, pour le PDF.
+pub fn lines_to_tax_lines(lines []models.PayslipLine) ([]core.TaxLine, []core.TaxLine, i64) {
+	mut sal := []core.TaxLine{}
+	mut pat := []core.TaxLine{}
+	mut pat_total := i64(0)
+	for l in lines {
+		t := core.TaxLine{
+			name: l.label
+			amount: l.amount
+			code: l.code
+			share: l.share
+			base: l.base
+			rate: l.rate
+		}
+		if l.share == core.share_patronal {
+			pat << t
+			pat_total += l.amount
+		} else {
+			sal << t
+		}
+	}
+	return sal, pat, pat_total
 }
 
 // payout_worker calcule la paie d'un employé (fonction pure) et pousse le résultat
 // dans le canal partagé. Eff_components/eff_brackets/rules sont en lecture seule,
 // sélectionnées une seule fois dans `run_and_save_monthly_payroll`.
 fn payout_worker(ch chan CalcOut, task EmpPayoutTask, use_config bool, eff_components []models.TaxComponent, eff_brackets []models.TaxBracket, rules []models.TaxRule) {
-	mut result := core.CalculationResult{}
-	if use_config {
-		result = core.compute_payslip_configurable(task.contract, eff_components, eff_brackets, task.adjustments,
-			task.tax_parts)
-	} else {
-		result = core.calculate_pay_full_ci(task.contract, rules, task.adjustments, task.tax_parts)
-	}
+	result, employer := compute_payslip(task.contract, task.adjustments, task.tax_parts,
+		use_config, eff_components, eff_brackets, rules)
 	ch <- CalcOut{
 		idx: task.idx
 		result: result
+		employer: employer
 	}
 }
 
@@ -73,7 +129,7 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 		if progress != unsafe { nil } {
 			progress(100)
 		}
-		return error('La paie de ${month}/${year} a déjà été générée. Utilisez la correction de bulletin si nécessaire.')
+		return error('La paie de ${month}/${year} a déjà été générée. Pour corriger un bulletin en brouillon, utilisez le recalcul (POST /payslips/:id/recalculate).')
 	}
 
 	period_date := '${year:04d}-${month:02d}-01'
@@ -119,9 +175,11 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 		spawn payout_worker(ch, t, use_config, eff_components, eff_brackets, rules)
 	}
 	mut results := []core.CalculationResult{len: tasks.len}
+	mut employer_lines := [][]core.TaxLine{len: tasks.len}
 	for _ in 0 .. tasks.len {
 		out := <-ch
 		results[out.idx] = out.result
+		employer_lines[out.idx] = out.employer
 	}
 	if progress != unsafe { nil } {
 		progress(60)
@@ -129,6 +187,7 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 
 	// 4. Construire les bulletins à partir des résultats
 	mut payslips := []models.Payslip{}
+	mut lines := [][]models.PayslipLine{cap: tasks.len}
 	for i in 0 .. tasks.len {
 		task := tasks[i]
 		result := results[i]
@@ -152,11 +211,12 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 			net_amount: result.net_pay
 			status: models.status_brouillon
 		}
+		lines << payslip_lines(result.tax_details, employer_lines[i])
 	}
 
 	// 5-6. Enregistrement atomique du lot : une seule transaction sur une connexion
 	// réservée — en cas d'échec d'un bulletin, aucun n'est conservé.
-	saved := s.repo.create_payslips(payslips)!
+	saved := s.repo.create_payslips_with_lines(payslips, lines)!
 
 	if progress != unsafe { nil } {
 		progress(85)
@@ -178,6 +238,55 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 		progress(100)
 	}
 	return saved
+}
+
+// recalculate_payslip recalcule un bulletin en brouillon (ex: prime saisie après la
+// génération, contrat corrigé, bulletin rejeté) avec le contrat actif, les ajustements
+// du mois et les règles en vigueur à la période. Montants et détail sont remplacés
+// dans une transaction ; le PDF en cache est invalidé. Retourne le bulletin à jour
+// et son ancien net.
+pub fn (mut s PayrollService) recalculate_payslip(org_id int, payslip_id int) !(models.Payslip, i64) {
+	p := s.repo.get_payslip_by_id(payslip_id, org_id) or {
+		return error('Bulletin ${payslip_id} introuvable')
+	}
+	if p.status != models.status_brouillon {
+		return error("Seul un bulletin 'brouillon' peut être recalculé (statut actuel: '${p.status}')")
+	}
+	emp := s.repo.get_employee_by_id(p.employee_id, org_id) or {
+		return error('Employé ${p.employee_id} introuvable')
+	}
+	contract := s.repo.get_active_contract(emp.id, org_id) or {
+		return error('Aucun contrat actif pour ${emp.first_name} ${emp.last_name}')
+	}
+	month := p.period_start.month
+	year := p.period_start.year
+	period_date := '${year:04d}-${month:02d}-01'
+	rules := s.repo.get_tax_rules('CI', org_id)
+	components := s.repo.get_components(org_id)
+	use_config := components.len > 0
+	eff_components := if use_config {
+		core.select_effective_components(components, period_date)
+	} else {
+		[]models.TaxComponent{}
+	}
+	eff_brackets := if use_config {
+		core.select_effective_brackets(s.repo.get_brackets(org_id), period_date)
+	} else {
+		[]models.TaxBracket{}
+	}
+	adjustments := s.repo.get_adjustments_for_period(emp.id, month, year, org_id)
+	result, employer := compute_payslip(contract, adjustments, emp.tax_parts, use_config,
+		eff_components, eff_brackets, rules)
+	updated := models.Payslip{
+		...p
+		gross_amount: result.gross_pay
+		total_taxes: result.total_taxes
+		net_amount: result.net_pay
+		pdf_path: ''
+	}
+	s.repo.replace_payslip_calculation(updated, payslip_lines(result.tax_details, employer))!
+	log_info('Bulletin ${payslip_id} recalculé : net ${p.net_amount} → ${updated.net_amount}')
+	return updated, p.net_amount
 }
 
 // mark_paid marque un bulletin de paie comme payé.

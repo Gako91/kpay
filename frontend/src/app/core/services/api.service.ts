@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse, DisaPreview, DisaSealed, DeclarationExport, ChainCheck } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse, DisaPreview, DisaSealed, PayslipLine, DeclarationExport, ChainCheck } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -77,6 +77,14 @@ export class ApiService {
     jobEventsUrl(jobId: number): string {
         const token = localStorage.getItem('kpay_jwt_token') || '';
         return `${this.baseUrl}/events/jobs/${jobId}?token=${encodeURIComponent(token)}`;
+    }
+
+    recalculatePayslip(payslipId: number): Observable<Payslip> {
+        return this.http.post<Payslip>(`${this.baseUrl}/payslips/${payslipId}/recalculate`, {});
+    }
+
+    getPayslipLines(payslipId: number): Observable<PayslipLine[]> {
+        return this.http.get<PayslipLine[]>(`${this.baseUrl}/payslips/${payslipId}/lines`);
     }
 
     submitPayslip(payslipId: number): Observable<{ success: boolean; message: string }> {

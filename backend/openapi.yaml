@@ -583,6 +583,62 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /payslips/{id}/recalculate:
+    post:
+      summary: Recalculer un bulletin en brouillon
+      description: |
+        Recalcule le bulletin avec le contrat actif, les ajustements du mois et les règles en
+        vigueur à la période, puis remplace ses montants et son détail figé (payslip_line) dans
+        une transaction. Le PDF en cache est supprimé. Rôle admin/payroll_officer + permission
+        `payroll.run`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bulletin recalculé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payslip'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Bulletin non brouillon, ou employé sans contrat actif
+
+  /payslips/{id}/lines:
+    get:
+      summary: Détail figé des retenues d'un bulletin
+      description: Lignes enregistrées au calcul (vide pour un bulletin antérieur à la migration 018).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lignes ordonnées (salariales puis patronales)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    position: { type: integer }
+                    code: { type: string, example: CNPS_RET }
+                    label: { type: string, example: CNPS Retraite }
+                    share: { type: string, enum: [salarial, patronal] }
+                    base: { type: integer, description: Assiette en FCFA (0 = forfait) }
+                    rate: { type: number, description: Taux décimal (0 = forfait ou barème) }
+                    amount: { type: integer }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /payslips/{id}/submit:
     post:
       summary: Soumettre un bulletin pour approbation

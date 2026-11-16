@@ -340,3 +340,17 @@ export interface ChainCheck {
     broken_id: number;
     reason: string;
 }
+
+// Retenue figée sur un bulletin au moment du calcul (payslip_line)
+export interface PayslipLine {
+    id: number;
+    organization_id: number;
+    payslip_id: number;
+    position: number;
+    code: string;
+    label: string;
+    share: 'salarial' | 'patronal';
+    base: number;
+    rate: number;
+    amount: number;
+}

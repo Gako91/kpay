@@ -151,7 +151,7 @@ Avant de construire les fonctionnalités, sécuriser le socle.
   - [ ] Périodicité journalière (J) : suivi des jours travaillés
   - [ ] Tableau DASC : cotisations annuelles dues (assiettes plafonnées au prorata) vs appels mensuels versés → solde de régularisation
 - [ ] **État 301 (DGI)** : récapitulatif trimestriel des retenues ITS/IGR
-  - [ ] Figer le détail des retenues par bulletin (IS, CN, IGR, CNPS) au moment de la paie
+  - [x] Figer le détail des retenues par bulletin (IS, CN, IGR, CNPS) au moment de la paie (`payslip_line`, PDF basé sur ce détail, `POST /payslips/:id/recalculate` pour les brouillons)
   - [ ] `POST /exports/tax-301` avec trimestre/année → XML/tableur normé
 - [x] **Registre historique** : chaque export enregistré avec SHA-256, version et chaînage par organisation (`declaration_export`, ajout seul, `GET /exports/declarations/verify`)
 

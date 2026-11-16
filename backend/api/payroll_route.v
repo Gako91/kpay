@@ -281,7 +281,7 @@ pub fn (mut app App) run_payroll(mut ctx Context) veb.Result {
 	// Idempotence : refuser si la paie de cette période a déjà été générée
 	if app.repo.exists_payslip_for_period(req.month, req.year, ctx.user_org) {
 		ctx.res.set_status(.conflict)
-		return ctx.json(dto.error_response("La paie de ${req.month}/${req.year} a déjà été générée. Utilisez la correction de bulletin si nécessaire."))
+		return ctx.json(dto.error_response("La paie de ${req.month}/${req.year} a déjà été générée. Pour corriger un bulletin en brouillon, utilisez le recalcul (POST /payslips/:id/recalculate)."))
 	}
 
 	payload := '{"month": ${req.month}, "year": ${req.year}}'

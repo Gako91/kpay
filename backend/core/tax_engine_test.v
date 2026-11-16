@@ -79,6 +79,15 @@ fn test_engine_equals_legacy_ci() {
 			assert engine.total_taxes == legacy.total_taxes, 'taxes gross=${gross} parts=${parts} : engine=${engine.total_taxes} legacy=${legacy.total_taxes}'
 			assert engine.gross_pay == legacy.gross_pay
 			assert engine.tax_details.len == legacy.tax_details.len
+			// Le détail figé doit reconstituer exactement le total des retenues
+			mut sum := i64(0)
+			for t in engine.tax_details {
+				sum += t.amount
+				assert t.share == 'salarial'
+				assert t.code.len > 0
+			}
+			assert sum == engine.total_taxes
+			assert engine.tax_details.map(it.code).filter(it in ['IS', 'CN', 'IGR']) == legacy.tax_details.map(it.code).filter(it in ['IS', 'CN', 'IGR'])
 		}
 	}
 }
@@ -94,6 +103,36 @@ fn test_employer_contributions_configurable() {
 	details, total := employer_contributions_configurable(components, 400_000)
 	assert total == 30_800 + 4_025 + 1_400 + 4_800 // 41 025
 	assert details.len == 4 // la part salariale est ignorée
+	// Détail figé : code, part, assiette plafonnée et taux
+	pf := details.filter(it.code == 'CNPS_PF')[0]
+	assert pf.share == 'patronal'
+	assert pf.base == 70_000
+	assert pf.rate == 0.0575
+	assert pf.amount == 4_025
+	ret := details.filter(it.code == 'CNPS_RET_E')[0]
+	assert ret.base == 400_000
+}
+
+fn test_tax_line_bases() {
+	ret := models.TaxComponent{ code: 'CNPS_RET', name: 'CNPS Retraite', rate: 0.063, basis_type: 'plafonne', cap: 3_375_000, share: 'salarial' }
+	cmu := models.TaxComponent{ code: 'CMU', name: 'CMU', basis_type: 'forfait', fixed_amount: 1000, share: 'salarial' }
+	is_c := models.TaxComponent{ code: 'IS', name: 'IS', rate: 0.012, basis_type: 'brut80', share: 'salarial' }
+	assert component_base(4_000_000, ret) == 3_375_000
+	assert component_base(400_000, ret) == 400_000
+	assert component_base(400_000, cmu) == 0
+	assert component_base(400_000, is_c) == 320_000
+
+	res := compute_payslip_configurable(models.Contract{ base_salary: 4_000_000 }, [ret, cmu, is_c], [], [], 1.0)
+	lines := res.tax_details
+	assert lines.map(it.code) == ['CNPS_RET', 'CMU', 'IS']
+	assert lines[0].base == 3_375_000 && lines[0].rate == 0.063 && lines[0].amount == 212_625
+	assert lines[1].base == 0 && lines[1].rate == 0.0 && lines[1].amount == 1_000
+	assert lines[2].base == 3_200_000 && lines[2].amount == 38_400
+}
+
+fn test_rule_code() {
+	assert rule_code(models.TaxRule{ name: 'CNPS Retraite (part salariale)' }) == 'CNPS_RETRAITE_PART_SALARIALE'
+	assert rule_code(models.TaxRule{ name: 'CMU' }) == 'CMU'
 }
 
 fn test_select_effective_components_historical() {

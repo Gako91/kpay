@@ -8,6 +8,36 @@ pub struct TaxLine {
 pub:
 	name   string
 	amount i64
+	// Détail figé sur le bulletin (payslip_line) : code de la rubrique, part
+	// ('salarial' | 'patronal'), assiette et taux appliqués (0 = forfait ou barème).
+	code  string
+	share string = 'salarial'
+	base  i64
+	rate  f64
+}
+
+// rule_base retourne l'assiette d'une règle historique (brut plafonné, 0 si forfait).
+pub fn rule_base(gross i64, rule models.TaxRule) i64 {
+	if rule.fixed_amount > 0 {
+		return 0
+	}
+	if rule.ceiling > 0 && gross > rule.ceiling {
+		return rule.ceiling
+	}
+	return gross
+}
+
+// rule_code dérive un code de rubrique d'une règle historique (TaxRule n'a pas de code).
+pub fn rule_code(rule models.TaxRule) string {
+	mut out := []u8{}
+	for c in rule.name.to_upper().bytes() {
+		if (c >= `A` && c <= `Z`) || (c >= `0` && c <= `9`) {
+			out << c
+		} else if out.len > 0 && out.last() != `_` {
+			out << `_`
+		}
+	}
+	return out.bytestr().trim_right('_')
 }
 
 pub struct CalculationResult {
@@ -54,7 +84,13 @@ pub fn calculate_pay(contract models.Contract, rules []models.TaxRule, adjustmen
 		if !rule.is_employer {
 			tax_amount := calculate_tax_amount(total_gross, rule)
 			total_taxes += tax_amount
-			tax_details << TaxLine{ name: rule.name, amount: tax_amount }
+			tax_details << TaxLine{
+				name: rule.name
+				amount: tax_amount
+				code: rule_code(rule)
+				base: rule_base(total_gross, rule)
+				rate: if rule.fixed_amount > 0 { 0.0 } else { rule.rate }
+			}
 		}
 	}
 
@@ -192,7 +228,13 @@ pub fn calculate_pay_full_ci(contract models.Contract, rules []models.TaxRule, a
 		if !rule.is_employer {
 			tax_amount := calculate_tax_amount(total_gross, rule)
 			total_taxes += tax_amount
-			tax_details << TaxLine{ name: rule.name, amount: tax_amount }
+			tax_details << TaxLine{
+				name: rule.name
+				amount: tax_amount
+				code: rule_code(rule)
+				base: rule_base(total_gross, rule)
+				rate: if rule.fixed_amount > 0 { 0.0 } else { rule.rate }
+			}
 		}
 	}
 
@@ -200,19 +242,35 @@ pub fn calculate_pay_full_ci(contract models.Contract, rules []models.TaxRule, a
 	is_amount := calculate_is_ci(total_gross)
 	if is_amount > 0 {
 		total_taxes += is_amount
-		tax_details << TaxLine{ name: 'Impôt sur Salaire (IS)', amount: is_amount }
+		tax_details << TaxLine{
+			name: 'Impôt sur Salaire (IS)'
+			amount: is_amount
+			code: 'IS'
+			base: i64(math.round(f64(total_gross) * 0.80))
+			rate: 0.012
+		}
 	}
 
 	cn_amount := calculate_cn_ci(total_gross)
 	if cn_amount > 0 {
 		total_taxes += cn_amount
-		tax_details << TaxLine{ name: 'Contribution Nationale (CN)', amount: cn_amount }
+		tax_details << TaxLine{
+			name: 'Contribution Nationale (CN)'
+			amount: cn_amount
+			code: 'CN'
+			base: i64(math.round(f64(total_gross) * 0.80))
+		}
 	}
 
 	igr_amount := calculate_igr_ci(total_gross, is_amount, cn_amount, tax_parts)
 	if igr_amount > 0 {
 		total_taxes += igr_amount
-		tax_details << TaxLine{ name: 'Impôt Général Revenu (IGR)', amount: igr_amount }
+		tax_details << TaxLine{
+			name: 'Impôt Général Revenu (IGR)'
+			amount: igr_amount
+			code: 'IGR'
+			base: i64(math.round(f64(total_gross) * 0.80)) - is_amount - cn_amount
+		}
 	}
 
 	return CalculationResult{
@@ -235,7 +293,14 @@ pub fn calculate_employer_contributions_ci(rules []models.TaxRule, gross i64) ([
 		if rule.is_employer {
 			amount := calculate_tax_amount(gross, rule)
 			if amount > 0 {
-				details << TaxLine{ name: rule.name, amount: amount }
+				details << TaxLine{
+					name: rule.name
+					amount: amount
+					code: rule_code(rule)
+					share: 'patronal'
+					base: rule_base(gross, rule)
+					rate: if rule.fixed_amount > 0 { 0.0 } else { rule.rate }
+				}
 				total += amount
 			}
 		}

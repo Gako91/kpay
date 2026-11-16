@@ -24,16 +24,37 @@ pub fn component_amount(base_amount i64, comp models.TaxComponent) i64 {
 	if comp.fixed_amount > 0 {
 		return comp.fixed_amount
 	}
-	mut taxable_base := base_amount
-	if comp.basis_type == basis_brut80 {
-		taxable_base = i64(math.round(f64(base_amount) * 0.80))
-	} else if comp.basis_type == basis_plafonne && comp.cap > 0 && base_amount > comp.cap {
-		taxable_base = comp.cap
-	}
+	taxable_base := component_base(base_amount, comp)
 	if taxable_base <= 0 || comp.rate <= 0.0 {
 		return 0
 	}
 	return i64(math.round(f64(taxable_base) * comp.rate))
+}
+
+// component_base retourne l'assiette d'une composante (0 pour un forfait).
+pub fn component_base(gross i64, comp models.TaxComponent) i64 {
+	if comp.fixed_amount > 0 {
+		return 0
+	}
+	if comp.basis_type == basis_brut80 {
+		return i64(math.round(f64(gross) * 0.80))
+	}
+	if comp.basis_type == basis_plafonne && comp.cap > 0 && gross > comp.cap {
+		return comp.cap
+	}
+	return gross
+}
+
+// component_line construit la ligne détaillée d'une composante à taux ou forfait.
+fn component_line(comp models.TaxComponent, gross i64, amount i64) TaxLine {
+	return TaxLine{
+		name: comp.name
+		amount: amount
+		code: comp.code
+		share: comp.share
+		base: component_base(gross, comp)
+		rate: if comp.fixed_amount > 0 { 0.0 } else { comp.rate }
+	}
 }
 
 fn sorted_brackets(brackets []models.TaxBracket) []models.TaxBracket {
@@ -163,7 +184,7 @@ pub fn compute_payslip_configurable(contract models.Contract, components []model
 				if amt > 0 {
 					is_amount = amt
 					total_taxes += amt
-					tax_details << TaxLine{ name: c.name, amount: amt }
+					tax_details << component_line(c, total_gross, amt)
 				}
 			}
 			'CN' {
@@ -175,7 +196,13 @@ pub fn compute_payslip_configurable(contract models.Contract, components []model
 				if amt > 0 {
 					cn_amount = amt
 					total_taxes += amt
-					tax_details << TaxLine{ name: c.name, amount: amt }
+					tax_details << TaxLine{
+						name: c.name
+						amount: amt
+						code: c.code
+						share: c.share
+						base: base
+					}
 				}
 			}
 			'IGR' {
@@ -185,7 +212,7 @@ pub fn compute_payslip_configurable(contract models.Contract, components []model
 				amt := component_amount(total_gross, c)
 				if amt > 0 {
 					total_taxes += amt
-					tax_details << TaxLine{ name: c.name, amount: amt }
+					tax_details << component_line(c, total_gross, amt)
 				}
 			}
 		}
@@ -196,20 +223,30 @@ pub fn compute_payslip_configurable(contract models.Contract, components []model
 			continue
 		}
 		mut amt := i64(0)
+		mut igr_base := i64(0)
 		if igr_brackets.len > 0 {
 			parts := if tax_parts < 1.0 { f64(1.0) } else { f64(tax_parts) }
 			r_base := (f64(total_gross) * 0.80) - f64(is_amount) - f64(cn_amount)
 			if r_base > 0 {
+				igr_base = i64(math.round(r_base))
 				q := (r_base * 0.85) / parts
 				single := bracket_amount_f(q, igr_brackets)
 				amt = i64(math.round(single * parts))
 			}
 		} else {
 			amt = component_amount(total_gross, c)
+			igr_base = component_base(total_gross, c)
 		}
 		if amt > 0 {
 			total_taxes += amt
-			tax_details << TaxLine{ name: c.name, amount: amt }
+			tax_details << TaxLine{
+				name: c.name
+				amount: amt
+				code: c.code
+				share: c.share
+				base: igr_base
+				rate: if igr_brackets.len > 0 || c.fixed_amount > 0 { 0.0 } else { c.rate }
+			}
 		}
 	}
 
@@ -232,7 +269,7 @@ pub fn employer_contributions_configurable(components []models.TaxComponent, gro
 		}
 		amount := component_amount(gross, c)
 		if amount > 0 {
-			details << TaxLine{ name: c.name, amount: amount }
+			details << component_line(c, gross, amount)
 			total += amount
 		}
 	}

@@ -21,7 +21,8 @@
 - **Déclarations sociales** : DISA annuelle CNPS au format d'entrée E-DISA (.xls), registre scellé (SHA-256 + chaînage)
 - **Documents OpenAPI / Swagger UI** : Spécification complète et interface interactive sur `/docs`
 - **Authentification JWT** : Connexion via `POST /auth/login` (token Bearer JWT, RBAC admin / payroll_officer / accountant / employee), fallback clé API (`X-Api-Key`)
-- **Workflow d'approbation** : Bulletins brouillon → soumis → approuvé → payé
+- **Workflow d'approbation** : Bulletins brouillon → soumis → approuvé → payé ; un brouillon (y compris rejeté) peut être recalculé
+- **Détail figé** : chaque retenue (code, part, assiette, taux, montant) est enregistrée avec le bulletin (`payslip_line`) ; le PDF et les déclarations lisent ce détail au lieu de recalculer
 - **Journal d'audit** : Traçabilité des actions sensibles (login, paie, approbations...)
 - **Notifications** : Système de notification pour les événements (bulletin généré, paiement effectué), envoi réel par SMTP
 - **Pool de connexions** : PostgreSQL avec pool paramétrable (stats exposées via `/health/db`)
@@ -202,6 +203,8 @@ Routes publiques (aucune authentification) : `/`, `/health*`, `/metrics`, `/docs
 | `POST`  | `/payroll/run`               | Génère et sauvegarde la paie mensuelle pour tous les employés |
 | `GET`   | `/payslips/:id`              | Consulte un bulletin de paie                                  |
 | `GET`   | `/payslips/:id/pdf`          | Télécharge le bulletin au format PDF                          |
+| `GET`   | `/payslips/:id/lines`        | Détail figé des retenues (code, assiette, taux, montant)      |
+| `POST`  | `/payslips/:id/recalculate`  | Recalcule un bulletin en brouillon (prime tardive, rejet…)    |
 | `POST`  | `/payslips/:id/submit`       | Soumet un bulletin pour approbation                           |
 | `POST`  | `/payslips/:id/approve`      | Approuve un bulletin soumis                                   |
 | `POST`  | `/payslips/:id/reject`       | Refuse un bulletin (retour en brouillon)                      |

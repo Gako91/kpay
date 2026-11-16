@@ -97,6 +97,9 @@ import { Job, Payslip } from '../../core/models/kpay.models';
                 <td class="px-4 py-3.5">
                   <div class="flex gap-1.5 justify-end">
                     @if (p.status === 'brouillon' || p.status === 'rejete') {
+                      @if (p.status === 'brouillon') {
+                        <button (click)="recalculate(p.id)" class="btn btn-sm btn-secondary" title="Recalculer avec le contrat, les primes et les règles actuels">Recalculer</button>
+                      }
                       <button (click)="submit(p.id)" class="btn btn-sm btn-secondary">Soumettre</button>
                     }
                     @if (p.status === 'soumis') {
@@ -236,6 +239,10 @@ export class PayrollComponent implements OnInit {
             this.isRunning.set(false);
             this.jobProgress.set(null);
         };
+    }
+
+    recalculate(id: number): void {
+        this.workflowAction(() => this.apiService.recalculatePayslip(id), 'Bulletin recalculé.');
     }
 
     submit(id: number): void {

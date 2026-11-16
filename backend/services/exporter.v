@@ -377,14 +377,14 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 	mut sub := table_y
 
 	// Section salariale
-	draw_salari_row(mut doc, page_idx_mut, 'COT SAL.', 'COTISATIONS SALARIALES', p.gross_amount, p.gross_amount, sub, body_fnt, body_bold)
+	draw_salari_row(mut doc, page_idx_mut, 'COT SAL.', 'COTISATIONS SALARIALES', p.gross_amount, p.total_taxes, sub, body_fnt, body_bold)
 	sub -= 6.0
 	if sub < 125.0 {
 		page_idx_mut = new_payslip_page(mut doc, header_fnt)
 		sub = 230.0
 	}
 	for i, line in tax_details {
-		draw_salari_row(mut doc, page_idx_mut, '${400 + (i + 1) * 10}', line.name, p.gross_amount, line.amount, sub, body_fnt, body_bold)
+		draw_salari_row(mut doc, page_idx_mut, '${400 + (i + 1) * 10}', line.name, line_base(line, p.gross_amount), line.amount, sub, body_fnt, body_bold)
 		sub -= 6.0
 		if sub < 125.0 {
 			page_idx_mut = new_payslip_page(mut doc, header_fnt)
@@ -402,7 +402,10 @@ pub fn generate_payslip_pdf(p models.Payslip, emp models.Employee, contract mode
 		}
 	}
 	for i, elk in employer_details {
-		draw_patronal_row(mut doc, page_idx_mut, '${510 + (i + 1) * 10}', elk.name, p.gross_amount, elk.amount, sub, body_fnt, body_bold)
+		draw_patronal_row(mut doc, page_idx_mut, '${510 + (i + 1) * 10}', elk.name, line_base(elk, p.gross_amount), elk.amount, sub, body_fnt, body_bold)
+		if elk.rate > 0 {
+			doc.page_list[page_idx_mut].push_content(doc.page_list[page_idx_mut].draw_base_text(format_rate(elk.rate), 172, top_y(sub), body_fnt))
+		}
 		sub -= 6.0
 		if sub < 125.0 {
 			page_idx_mut = new_payslip_page(mut doc, header_fnt)
@@ -469,6 +472,12 @@ fn draw_salari_row(mut doc pdf.Pdf, page_idx int, code string, label string, gro
 	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(sanitize_pdf_text(label), 25, top_y(y), body_fnt))
 	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(gross), 95, top_y(y), body_fnt))
 	doc.page_list[page_idx].push_content(doc.page_list[page_idx].draw_base_text(format_amount_clean(amount), 148, top_y(y), body_bold))
+}
+
+// line_base retourne l'assiette à afficher : celle de la ligne figée, sinon le brut
+// (forfait, ou ancien bulletin sans détail figé).
+fn line_base(line core.TaxLine, gross i64) i64 {
+	return if line.base > 0 { line.base } else { gross }
 }
 
 // draw_patronal_row dessine une ligne de cotisation patronale (retenue patronale à droite).

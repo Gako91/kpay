@@ -137,3 +137,13 @@ pub fn (s &StorageService) download_file(object_name string) ![]u8 {
 	}
 	return resp.body.bytes()
 }
+// delete_file supprime un objet du bucket (absent = succès, comme S3).
+pub fn (s &StorageService) delete_file(object_name string) ! {
+	presigned := s.sign_presigned_url('DELETE', object_name, 900)!
+	resp := http.fetch(method: .delete, url: presigned) or {
+		return error("MinIO DELETE '${object_name}': ${err}")
+	}
+	if resp.status_code != 204 && resp.status_code != 200 && resp.status_code != 404 {
+		return error("MinIO DELETE '${object_name}': HTTP ${resp.status_code} ${resp.body}")
+	}
+}

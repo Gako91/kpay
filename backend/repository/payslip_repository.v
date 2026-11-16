@@ -48,18 +48,30 @@ pub fn (mut r Repository) create_payslip(payslip models.Payslip) !int {
 	return inserted_id
 }
 
-// create_payslips enregistre un lot de bulletins de façon atomique (une seule
-// transaction sur une connexion réservée) : soit tous sont insérés, soit aucun.
-// Retourne les bulletins avec leur id.
+// create_payslips enregistre un lot de bulletins sans détail de retenues.
 pub fn (mut r Repository) create_payslips(payslips []models.Payslip) ![]models.Payslip {
+	return r.create_payslips_with_lines(payslips, [][]models.PayslipLine{})
+}
+
+// create_payslips_with_lines enregistre un lot de bulletins et leurs lignes de
+// retenues de façon atomique (une seule transaction sur une connexion réservée) :
+// soit tout est inséré, soit rien. lines[i] (si présent) est le détail de payslips[i].
+// Retourne les bulletins avec leur id.
+pub fn (mut r Repository) create_payslips_with_lines(payslips []models.Payslip, lines [][]models.PayslipLine) ![]models.Payslip {
 	mut tx := r.begin()!
 	mut saved := []models.Payslip{cap: payslips.len}
-	for payslip in payslips {
+	for i, payslip in payslips {
 		id := sql tx {
 			insert payslip into models.Payslip
 		} or {
 			tx.rollback() or {}
 			return error('Erreur lors de la sauvegarde du bulletin pour employé ${payslip.employee_id}: ${err}')
+		}
+		if i < lines.len {
+			insert_lines(mut tx, id, payslip.organization_id, lines[i]) or {
+				tx.rollback() or {}
+				return error('Erreur lors de la sauvegarde du détail du bulletin pour employé ${payslip.employee_id}: ${err}')
+			}
 		}
 		saved << models.Payslip{
 			...payslip
@@ -68,6 +80,52 @@ pub fn (mut r Repository) create_payslips(payslips []models.Payslip) ![]models.P
 	}
 	tx.commit()!
 	return saved
+}
+
+fn insert_lines(mut tx pg.Tx, payslip_id int, org_id int, lines []models.PayslipLine) ! {
+	for line in lines {
+		row := models.PayslipLine{
+			...line
+			payslip_id: payslip_id
+			organization_id: org_id
+		}
+		sql tx {
+			insert row into models.PayslipLine
+		}!
+	}
+}
+
+// get_payslip_lines retourne le détail figé d'un bulletin (vide pour un bulletin
+// généré avant la migration 018).
+pub fn (r &Repository) get_payslip_lines(payslip_id int, org_id int) []models.PayslipLine {
+	return sql r.db {
+		select from models.PayslipLine where payslip_id == payslip_id && organization_id == org_id order by position asc
+	} or { [] }
+}
+
+// replace_payslip_calculation remplace les montants et le détail d'un bulletin
+// recalculé. Uniquement en brouillon : la condition est vérifiée dans la requête
+// elle-même, donc un bulletin soumis entre-temps n'est pas modifié. Le PDF en
+// cache est invalidé (pdf_path vidé).
+pub fn (mut r Repository) replace_payslip_calculation(p models.Payslip, lines []models.PayslipLine) ! {
+	mut tx := r.begin()!
+	replace_in_tx(mut tx, p, lines) or {
+		tx.rollback() or {}
+		return err
+	}
+	tx.commit()!
+}
+
+fn replace_in_tx(mut tx pg.Tx, p models.Payslip, lines []models.PayslipLine) ! {
+	updated := tx.exec_param_many("UPDATE payslip SET gross_amount = \$3, total_taxes = \$4, net_amount = \$5, pdf_path = '' WHERE id = \$1 AND organization_id = \$2 AND status = 'brouillon' RETURNING id",
+		[p.id.str(), p.organization_id.str(), p.gross_amount.str(), p.total_taxes.str(),
+		p.net_amount.str()])!
+	if updated.len == 0 {
+		return error("Seul un bulletin 'brouillon' peut être recalculé")
+	}
+	tx.exec_param_many('DELETE FROM payslip_line WHERE payslip_id = \$1 AND organization_id = \$2',
+		[p.id.str(), p.organization_id.str()])!
+	insert_lines(mut tx, p.id, p.organization_id, lines)!
 }
 
 pub fn (mut r Repository) mark_payslip_paid(payslip_id int, org_id int) ! {

@@ -270,3 +270,64 @@ fn test_declaration_registry_sealing() ! {
 	}
 	assert !deleted
 }
+
+// Détail figé des bulletins : insertion atomique avec le lot, relecture ordonnée,
+// remplacement limité aux brouillons, suppression en cascade avec le bulletin.
+fn test_payslip_lines_frozen_and_replaced() ! {
+	mut r := open_test_db() or { return }
+	defer {
+		r.close()
+	}
+	org_id := new_test_org(mut r)
+	emp_id := r.create_employee(new_test_employee(org_id))!
+	slip := models.Payslip{
+		organization_id: org_id
+		employee_id:     emp_id
+		period_start:    time.Time{ year: 2026, month: 5, day: 1 }
+		period_end:      time.Time{ year: 2026, month: 5, day: 31 }
+		gross_amount:    400000
+		total_taxes:     26200
+		net_amount:      373800
+		status:          models.status_brouillon
+	}
+	lines := [
+		models.PayslipLine{ position: 1, code: 'CNPS_RET', label: 'CNPS Retraite', share: 'salarial', base: 400000, rate: 0.063, amount: 25200 },
+		models.PayslipLine{ position: 2, code: 'CMU', label: 'CMU', share: 'salarial', amount: 1000 },
+		models.PayslipLine{ position: 3, code: 'CNPS_PF', label: 'PF', share: 'patronal', base: 70000, rate: 0.0575, amount: 4025 },
+	]
+	saved := r.create_payslips_with_lines([slip], [lines])!
+	id := saved[0].id
+	got := r.get_payslip_lines(id, org_id)
+	assert got.map(it.code) == ['CNPS_RET', 'CMU', 'CNPS_PF']
+	assert got[0].payslip_id == id && got[0].organization_id == org_id
+	assert got[0].rate == 0.063 && got[2].base == 70000
+	// Isolation : une autre organisation ne lit pas ces lignes
+	assert r.get_payslip_lines(id, org_id + 100000).len == 0
+
+	// Recalcul d'un brouillon : montants et lignes remplacés
+	r.replace_payslip_calculation(models.Payslip{
+		...saved[0]
+		gross_amount: 500000
+		total_taxes:  32500
+		net_amount:   467500
+	}, [models.PayslipLine{ position: 1, code: 'CNPS_RET', label: 'CNPS Retraite', share: 'salarial', base: 500000, rate: 0.063, amount: 31500 }])!
+	after := r.get_payslip_by_id(id, org_id) or { panic('bulletin ${id} introuvable') }
+	assert after.net_amount == 467500
+	assert r.get_payslip_lines(id, org_id).len == 1
+
+	// Hors brouillon : refusé, rien n'est modifié
+	r.update_payslip_status(id, models.status_soumis, org_id)!
+	mut refused := false
+	r.replace_payslip_calculation(models.Payslip{
+		...saved[0]
+		net_amount: 1
+	}, []) or { refused = true }
+	assert refused
+	assert r.get_payslip_lines(id, org_id).len == 1
+	unchanged := r.get_payslip_by_id(id, org_id) or { panic('bulletin ${id} introuvable') }
+	assert unchanged.net_amount == 467500
+
+	// Suppression du bulletin : lignes supprimées en cascade
+	r.db.exec_param_many('DELETE FROM payslip WHERE id = \$1', [id.str()])!
+	assert r.get_payslip_lines(id, org_id).len == 0
+}
