@@ -148,13 +148,14 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 
 	// 2. Construire les tâches (séquentiel : I/O base dans la goroutine du worker)
 	employees := s.repo.get_all_employees(org_id)
+	carence := s.org_carence_days(org_id)
 	mut tasks := []EmpPayoutTask{}
 	for emp in employees {
-		contract := s.repo.get_active_contract(emp.id, org_id) or {
-			log_warn('Pas de contrat actif pour ${emp.first_name} ${emp.last_name}')
+		contract := s.repo.get_contract_for_period(emp.id, month, year, org_id) or {
+			log_warn('Pas de contrat en ${month:02d}/${year} pour ${emp.first_name} ${emp.last_name}')
 			continue
 		}
-		adjustments := s.repo.get_adjustments_for_period(emp.id, month, year, org_id)
+		adjustments := s.period_adjustments(emp.id, contract, month, year, org_id, carence)
 		tasks << EmpPayoutTask{
 			idx: tasks.len
 			emp_id: emp.id
@@ -240,9 +241,145 @@ pub fn (mut s PayrollService) run_and_save_monthly_payroll(org_id int, month int
 	return saved
 }
 
+// PeriodRules regroupe les règles de calcul en vigueur pour une période de paie.
+struct PeriodRules {
+	use_config     bool
+	eff_components []models.TaxComponent
+	eff_brackets   []models.TaxBracket
+	rules          []models.TaxRule
+}
+
+fn (s &PayrollService) load_period_rules(org_id int, month int, year int) PeriodRules {
+	period_date := '${year:04d}-${month:02d}-01'
+	components := s.repo.get_components(org_id)
+	use_config := components.len > 0
+	return PeriodRules{
+		use_config: use_config
+		eff_components: if use_config {
+			core.select_effective_components(components, period_date)
+		} else {
+			[]models.TaxComponent{}
+		}
+		eff_brackets: if use_config {
+			core.select_effective_brackets(s.repo.get_brackets(org_id), period_date)
+		} else {
+			[]models.TaxBracket{}
+		}
+		rules: s.repo.get_tax_rules('CI', org_id)
+	}
+}
+
+// org_carence_days retourne le délai de carence maladie de l'organisation (0 = aucun).
+fn (s &PayrollService) org_carence_days(org_id int) int {
+	org := s.repo.get_organization_by_id(org_id) or { return 0 }
+	return org.leave_carence_days
+}
+
+// period_adjustments retourne les primes et retenues du mois, plus la retenue de
+// carence maladie calculée sur les arrêts approuvés (non enregistrée en base :
+// elle est recalculée à chaque calcul et apparaît dans le brut du bulletin).
+fn (s &PayrollService) period_adjustments(emp_id int, contract models.Contract, month int, year int, org_id int, carence int) []models.Adjustment {
+	mut adjustments := s.repo.get_adjustments_for_period(emp_id, month, year, org_id)
+	if carence > 0 {
+		leaves := s.repo.get_leave_requests_by_employee(emp_id, org_id) or { [] }
+		days := core.carence_days_in_month(leaves, carence, month, year)
+		amount := core.carence_deduction(contract.base_salary, days)
+		if amount > 0 {
+			adjustments << models.Adjustment{
+				organization_id: org_id
+				employee_id: emp_id
+				month: month
+				year: year
+				amount: -amount
+				description: 'Carence maladie (${days} j)'
+			}
+		}
+	}
+	return adjustments
+}
+
+// compute_employee calcule le bulletin d'un salarié pour un mois : contrat en vigueur
+// sur la période, primes et retenues du mois, carence, règles de la période.
+fn (s &PayrollService) compute_employee(emp models.Employee, month int, year int, org_id int, pr PeriodRules, carence int) !(core.CalculationResult, []core.TaxLine) {
+	contract := s.repo.get_contract_for_period(emp.id, month, year, org_id) or {
+		return error('Aucun contrat en vigueur en ${month:02d}/${year} pour ${emp.first_name} ${emp.last_name}')
+	}
+	adjustments := s.period_adjustments(emp.id, contract, month, year, org_id, carence)
+	result, employer := compute_payslip(contract, adjustments, emp.tax_parts, pr.use_config,
+		pr.eff_components, pr.eff_brackets, pr.rules)
+	return result, employer
+}
+
+// MissingPayslip est un salarié actif sous contrat sur la période mais sans bulletin.
+pub struct MissingPayslip {
+pub:
+	employee_id int
+	full_name   string
+}
+
+// missing_payslips liste les salariés actifs ayant un contrat sur la période et
+// aucun bulletin pour ce mois (ex: contrat saisi après la génération de la paie).
+pub fn (s &PayrollService) missing_payslips(org_id int, month int, year int) []MissingPayslip {
+	mut out := []MissingPayslip{}
+	for emp in s.repo.get_all_employees(org_id) {
+		s.repo.get_contract_for_period(emp.id, month, year, org_id) or { continue }
+		if s.repo.get_payslips_by_employee_period(emp.id, month, year, org_id).len > 0 {
+			continue
+		}
+		out << MissingPayslip{
+			employee_id: emp.id
+			full_name: '${emp.first_name} ${emp.last_name}'
+		}
+	}
+	return out
+}
+
+// generate_employee_payslip génère le bulletin d'un seul salarié pour un mois déjà
+// (ou pas encore) généré : refusé si ce salarié a déjà un bulletin sur la période.
+// Le bulletin est créé en brouillon avec son détail figé.
+pub fn (mut s PayrollService) generate_employee_payslip(org_id int, emp_id int, month int, year int) !models.Payslip {
+	emp := s.repo.get_employee_by_id(emp_id, org_id) or {
+		return error('Employé ${emp_id} introuvable')
+	}
+	if s.repo.get_payslips_by_employee_period(emp_id, month, year, org_id).len > 0 {
+		return error('${emp.first_name} ${emp.last_name} a déjà un bulletin pour ${month:02d}/${year} : utilisez le recalcul')
+	}
+	pr := s.load_period_rules(org_id, month, year)
+	result, employer := s.compute_employee(emp, month, year, org_id, pr, s.org_carence_days(org_id))!
+	p := models.Payslip{
+		organization_id: org_id
+		employee_id: emp_id
+		period_start: time.Time{
+			year: year
+			month: month
+			day: 1
+		}
+		period_end: time.Time{
+			year: year
+			month: month
+			day: core.days_in_month(month, year)
+		}
+		gross_amount: result.gross_pay
+		total_taxes: result.total_taxes
+		net_amount: result.net_pay
+		status: models.status_brouillon
+	}
+	saved := s.repo.create_payslips_with_lines([p], [
+		payslip_lines(result.tax_details, employer),
+	])!
+	log_info('Bulletin ${saved[0].id} généré pour ${emp.first_name} ${emp.last_name} (${month:02d}/${year})')
+	mut queue := new_notification_queue()
+	queue.push(notify_payslip_generated(emp.email, '${month}/${year}'))
+	mut dispatcher := new_notification_dispatcher()
+	dispatcher.mailer = s.mailer
+	dispatcher.queue = queue
+	dispatcher.dispatch_all()
+	return saved[0]
+}
+
 // recalculate_payslip recalcule un bulletin en brouillon (ex: prime saisie après la
-// génération, contrat corrigé, bulletin rejeté) avec le contrat actif, les ajustements
-// du mois et les règles en vigueur à la période. Montants et détail sont remplacés
+// génération, contrat corrigé, bulletin rejeté) avec le contrat en vigueur sur la
+// période, les ajustements du mois, la carence et les règles de la période. Montants et détail sont remplacés
 // dans une transaction ; le PDF en cache est invalidé. Retourne le bulletin à jour
 // et son ancien net.
 pub fn (mut s PayrollService) recalculate_payslip(org_id int, payslip_id int) !(models.Payslip, i64) {
@@ -255,28 +392,9 @@ pub fn (mut s PayrollService) recalculate_payslip(org_id int, payslip_id int) !(
 	emp := s.repo.get_employee_by_id(p.employee_id, org_id) or {
 		return error('Employé ${p.employee_id} introuvable')
 	}
-	contract := s.repo.get_active_contract(emp.id, org_id) or {
-		return error('Aucun contrat actif pour ${emp.first_name} ${emp.last_name}')
-	}
-	month := p.period_start.month
-	year := p.period_start.year
-	period_date := '${year:04d}-${month:02d}-01'
-	rules := s.repo.get_tax_rules('CI', org_id)
-	components := s.repo.get_components(org_id)
-	use_config := components.len > 0
-	eff_components := if use_config {
-		core.select_effective_components(components, period_date)
-	} else {
-		[]models.TaxComponent{}
-	}
-	eff_brackets := if use_config {
-		core.select_effective_brackets(s.repo.get_brackets(org_id), period_date)
-	} else {
-		[]models.TaxBracket{}
-	}
-	adjustments := s.repo.get_adjustments_for_period(emp.id, month, year, org_id)
-	result, employer := compute_payslip(contract, adjustments, emp.tax_parts, use_config,
-		eff_components, eff_brackets, rules)
+	pr := s.load_period_rules(org_id, p.period_start.month, p.period_start.year)
+	result, employer := s.compute_employee(emp, p.period_start.month, p.period_start.year,
+		org_id, pr, s.org_carence_days(org_id))!
 	updated := models.Payslip{
 		...p
 		gross_amount: result.gross_pay

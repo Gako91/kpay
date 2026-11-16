@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse, DisaPreview, DisaSealed, PayslipLine, DeclarationExport, ChainCheck } from '../models/kpay.models';
+import { Employee, Contract, Payslip, LeaveRequest, LeaveBalance, PayRun, ProfileChangeRequest, TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, OrgLeaveSettings, OrgLeaveSettingsInput, MfaStatus, MfaEnrollResponse, SsoConfig, UserSsoLink, Permission, RoleWithPermissions, PageResponse, User, UserCreateInput, UserUpdateInput, Job, JobRunResponse, DisaPreview, DisaSealed, PayslipLine, Adjustment, Timesheet, PayrollBook, MissingPayslip, DeclarationExport, ChainCheck } from '../models/kpay.models';
 
 @Injectable({
     providedIn: 'root'
@@ -315,5 +315,63 @@ export class ApiService {
 
     downloadDeclaration(id: number): Observable<Blob> {
         return this.http.get(`${this.baseUrl}/exports/declarations/${id}/file`, { responseType: 'blob' });
+    }
+
+    // --- Dossier salarié : contrats, primes/retenues, heures ---
+    getEmployeeContracts(employeeId: number): Observable<Contract[]> {
+        return this.http.get<Contract[]>(`${this.baseUrl}/employees/${employeeId}/contracts`);
+    }
+
+    createContract(contract: { employee_id: number; base_salary: number; hourly_rate: number; start_date: string; currency: string }): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/contracts`, contract);
+    }
+
+    endContract(contractId: number, endDate: string): Observable<{ success: boolean; message: string }> {
+        return this.http.put<{ success: boolean; message: string }>(`${this.baseUrl}/contracts/${contractId}/end`, { end_date: endDate });
+    }
+
+    getAdjustments(employeeId: number): Observable<Adjustment[]> {
+        return this.http.get<Adjustment[]>(`${this.baseUrl}/employees/${employeeId}/adjustments`);
+    }
+
+    createAdjustment(adj: { employee_id: number; month: number; year: number; amount: number; description: string }): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/adjustments`, adj);
+    }
+
+    deleteAdjustment(id: number): Observable<{ success: boolean; message: string }> {
+        return this.http.delete<{ success: boolean; message: string }>(`${this.baseUrl}/adjustments/${id}`);
+    }
+
+    getTimesheets(employeeId: number): Observable<Timesheet[]> {
+        return this.http.get<Timesheet[]>(`${this.baseUrl}/employees/${employeeId}/timesheets`);
+    }
+
+    saveTimesheet(ts: { employee_id: number; month: number; year: number; hours_worked: number; overtime_h: number }): Observable<{ success: boolean; data: string; message: string }> {
+        return this.http.post<{ success: boolean; data: string; message: string }>(`${this.baseUrl}/timesheets`, ts);
+    }
+
+    deleteTimesheet(id: number): Observable<{ success: boolean; message: string }> {
+        return this.http.delete<{ success: boolean; message: string }>(`${this.baseUrl}/timesheets/${id}`);
+    }
+
+    // --- Livre de paie, virements, bulletins manquants ---
+    getPayrollBook(month: number, year: number): Observable<PayrollBook> {
+        return this.http.get<PayrollBook>(`${this.baseUrl}/payroll/book`, { params: new HttpParams().set('month', month).set('year', year) });
+    }
+
+    downloadPayrollBook(month: number, year: number, format: 'csv' | 'pdf'): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/payroll/book/${format}`, { params: new HttpParams().set('month', month).set('year', year), responseType: 'blob' });
+    }
+
+    downloadSepa(month: number, year: number): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/exports/sepa`, { params: new HttpParams().set('month', month).set('year', year), responseType: 'blob' });
+    }
+
+    getMissingPayslips(month: number, year: number): Observable<MissingPayslip[]> {
+        return this.http.get<MissingPayslip[]>(`${this.baseUrl}/payroll/missing`, { params: new HttpParams().set('month', month).set('year', year) });
+    }
+
+    generateEmployeePayslip(employeeId: number, month: number, year: number): Observable<Payslip> {
+        return this.http.post<Payslip>(`${this.baseUrl}/payroll/run-employee`, { employee_id: employeeId, month, year });
     }
 }

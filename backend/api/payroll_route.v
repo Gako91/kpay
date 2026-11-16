@@ -314,33 +314,105 @@ pub fn (app &App) export_employees_csv_endpoint(mut ctx Context) veb.Result {
 	return ctx.text(csv_content)
 }
 
-// GET /exports/sepa - Générer le fichier de virement SEPA XML
+// GET /exports/sepa?month=&year= - Fichier de virement SEPA XML des bulletins APPROUVÉS
+// du mois (montant = net à payer). Refusé (422) si un salarié concerné n'a pas d'IBAN :
+// aucun IBAN n'est inventé.
 @['/exports/sepa']
 pub fn (app &App) export_sepa_endpoint(mut ctx Context) veb.Result {
-	if !ctx.has_role(['admin', 'payroll_officer']) {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
 		ctx.res.set_status(.forbidden)
 		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
 	}
-	employees := app.employee_svc.get_all(ctx.user_org)
+	month := if ctx.query['month'].len > 0 { ctx.query['month'].int() } else { time.now().month }
+	year := if ctx.query['year'].len > 0 { ctx.query['year'].int() } else { time.now().year }
+	if month < 1 || month > 12 || year < 2000 || year > 2100 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('Période invalide'))
+	}
+	payslips := app.repo.get_payslips_by_period(month, year, ctx.user_org).filter(it.status == models.status_approuve)
+	if payslips.len == 0 {
+		ctx.res.set_status(.unprocessable_entity)
+		return ctx.json(dto.error_response('Aucun bulletin approuvé à virer pour ${month:02d}/${year}'))
+	}
 	// Anomalie RIB : demandes IBAN/BIC en attente de validation RH (signalées dans le virement)
 	pending_rib := app.repo.get_pending_rib_changes(ctx.user_org)
 	mut transfers := []services.SepaTransfer{}
-	for emp in employees {
-		contract := app.repo.get_active_contract(emp.id, ctx.user_org) or { continue }
-		iban := if emp.iban.len > 0 { emp.iban } else { 'CI93010001001234567890${emp.id:02d}' }
-		bic := if emp.bic.len > 0 { emp.bic } else { 'BNFACIXX' }
+	mut missing := []string{}
+	for p in payslips {
+		emp := app.repo.get_employee_by_id(p.employee_id, ctx.user_org) or { continue }
+		if emp.iban.len == 0 {
+			missing << '${emp.first_name} ${emp.last_name}'
+			continue
+		}
 		transfers << services.SepaTransfer{
-			iban: iban
-			bic: bic
+			iban: emp.iban
+			bic: emp.bic
 			recipient_name: '${emp.first_name} ${emp.last_name}'
-			amount: contract.base_salary
-			reference: 'SALAIRE-${emp.id}'
+			amount: p.net_amount
+			reference: 'SALAIRE-${year}${month:02d}-${p.id}'
 			rib_pending: pending_rib[emp.id].len > 0
 		}
 	}
+	if missing.len > 0 {
+		ctx.res.set_status(.unprocessable_entity)
+		return ctx.json(dto.error_response('IBAN manquant pour : ${missing.join(', ')}'))
+	}
 	xml_content := services.generate_sepa_xml(transfers)
+	ctx.res.header.set_custom('Content-Disposition', 'attachment; filename="virements_${year}_${month:02d}.xml"') or {}
 	ctx.res.header.set(.content_type, 'application/xml; charset=utf-8')
 	return ctx.text(xml_content)
+}
+
+// GenerateEmployeeRequest est le corps de POST /payroll/run-employee.
+struct GenerateEmployeeRequest {
+	employee_id int
+	month       int
+	year        int
+}
+
+// POST /payroll/run-employee {"employee_id", "month", "year"} - Génère le bulletin
+// d'un seul salarié (oublié lors de la paie du mois, contrat saisi après coup).
+@['/payroll/run-employee'; post]
+pub fn (mut app App) run_employee_payroll(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) || !ctx.has_permission('payroll.run') {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — permission payroll.run requise'))
+	}
+	req := json2.decode[GenerateEmployeeRequest](ctx.req.data) or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('JSON invalide'))
+	}
+	if req.employee_id <= 0 || req.month < 1 || req.month > 12 || req.year < 2000 || req.year > 2100 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('employee_id, month et year sont requis'))
+	}
+	mut payroll_service := services.new_payroll_service(mut app.repo)
+	payroll_service.set_mailer(app.mailer_svc)
+	p := payroll_service.generate_employee_payslip(ctx.user_org, req.employee_id, req.month,
+		req.year) or {
+		ctx.res.set_status(if err.msg().contains('introuvable') { .not_found } else { .unprocessable_entity })
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.audit_action(mut ctx, 'payroll.run_employee', 'payslip', p.id, 'Bulletin ${req.month:02d}/${req.year} de l\'employé ${req.employee_id}')
+	ctx.res.set_status(.created)
+	return ctx.json(p)
+}
+
+// GET /payroll/missing?month=&year= - Salariés actifs sous contrat sur la période sans bulletin.
+@['/payroll/missing']
+pub fn (app &App) missing_payslips_endpoint(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	month := ctx.query['month'].int()
+	year := ctx.query['year'].int()
+	if month < 1 || month > 12 || year < 2000 || year > 2100 {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('Période invalide'))
+	}
+	mut payroll_service := services.new_payroll_service(mut app.repo)
+	return ctx.json(payroll_service.missing_payslips(ctx.user_org, month, year))
 }
 
 // GET /payroll/book - Livre de Paie mensuel au format JSON

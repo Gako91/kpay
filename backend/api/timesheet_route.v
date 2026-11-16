@@ -9,9 +9,17 @@ import time
 // get_timesheet GET /employees/:id/timesheets?month=&year= - Récupérer le timesheet d'un employé pour une période
 @['/employees/:id/timesheets']
 pub fn (app &App) get_timesheet(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'employee_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
+	}
+	// Sans mois ni année : tous les relevés du salarié (du plus récent au plus ancien)
+	if ctx.query['month'].len == 0 && ctx.query['year'].len == 0 {
+		return ctx.json(app.repo.get_timesheets_by_employee(id, ctx.user_org))
 	}
 	month := if ctx.query['month'].len > 0 { ctx.query['month'].int() } else { time.now().month }
 	year := if ctx.query['year'].len > 0 { ctx.query['year'].int() } else { time.now().year }
@@ -47,6 +55,17 @@ pub fn (mut app App) create_timesheet(mut ctx Context) veb.Result {
 	app.employee_svc.get_by_id(ts.employee_id, ctx.user_org) or {
 		ctx.res.set_status(.not_found)
 		return ctx.json(dto.error_response('Employé introuvable'))
+	}
+	// Un relevé par salarié et par mois : une nouvelle saisie remplace la précédente
+	if existing := app.repo.get_timesheet(ts.employee_id, ts.month, ts.year, ctx.user_org) {
+		app.repo.update_timesheet(models.Timesheet{
+			...ts
+			id: existing.id
+		}, ctx.user_org) or {
+			ctx.res.set_status(.internal_server_error)
+			return ctx.json(dto.error_response(err.msg()))
+		}
+		return ctx.json(dto.ApiResponse{ success: true, data: '${existing.id}', message: 'Relevé d\'heures mis à jour' })
 	}
 	new_id := app.repo.create_timesheet(ts) or {
 		ctx.res.set_status(.internal_server_error)
@@ -111,6 +130,10 @@ pub fn (mut app App) delete_timesheet(mut ctx Context, id int) veb.Result {
 // get_adjustments GET /employees/:id/adjustments?month=&year= - Récupérer les primes/retenues d'un employé
 @['/employees/:id/adjustments']
 pub fn (app &App) get_adjustments(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'employee_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))

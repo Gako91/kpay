@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { Job, Payslip } from '../../core/models/kpay.models';
+import { Job, MissingPayslip, Payslip, PayrollBook } from '../../core/models/kpay.models';
 
 @Component({
     selector: 'app-payroll',
@@ -133,6 +133,51 @@ import { Job, Payslip } from '../../core/models/kpay.models';
           }
         </table>
       </div>
+
+      <!-- Salariés sous contrat sans bulletin sur la période (contrat saisi après la paie…) -->
+      @if (payslips().length > 0 && missing().length > 0) {
+        <div class="card overflow-hidden">
+          <div class="card-head">
+            <h2 class="card-title">Salariés sans bulletin pour {{ selectedMonth }}/{{ selectedYear }}</h2>
+          </div>
+          <p class="px-4 pt-3 text-sm text-slate-500">Ces salariés ont un contrat sur la période mais pas de bulletin : la paie du mois a sans doute été lancée avant la saisie de leur contrat.</p>
+          <table class="data-table">
+            <tbody>
+              @for (m of missing(); track m.employee_id) {
+                <tr>
+                  <td class="px-4 py-3 font-medium text-slate-900">{{ m.full_name }}</td>
+                  <td class="px-4 py-3 text-right">
+                    <button (click)="generateFor(m.employee_id, m.full_name)" class="btn btn-sm btn-primary">Générer son bulletin</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- Livre de paie et virements -->
+      @if (book(); as b) {
+        @if (b.items.length > 0) {
+          <div class="card overflow-hidden">
+            <div class="card-head flex items-center justify-between flex-wrap gap-2">
+              <h2 class="card-title">Livre de paie {{ b.month }}/{{ b.year }}</h2>
+              <div class="flex gap-2">
+                <button (click)="downloadBook('csv')" class="btn btn-sm btn-secondary">Livre de paie CSV</button>
+                <button (click)="downloadBook('pdf')" class="btn btn-sm btn-secondary">Livre de paie PDF</button>
+                <button (click)="downloadSepa()" class="btn btn-sm btn-primary" title="Virements des bulletins approuvés, montant = net à payer">Fichier de virement SEPA</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4">
+              <div class="kpi-card"><p class="kpi-label">Salariés</p><p class="kpi-value">{{ b.total_employees }}</p></div>
+              <div class="kpi-card"><p class="kpi-label">Masse brute</p><p class="kpi-value">{{ b.total_gross | number:'1.0-0' }}</p></div>
+              <div class="kpi-card"><p class="kpi-label">Retenues</p><p class="kpi-value">{{ b.total_taxes | number:'1.0-0' }}</p></div>
+              <div class="kpi-card"><p class="kpi-label">Net à payer</p><p class="kpi-value">{{ b.total_net | number:'1.0-0' }}</p></div>
+            </div>
+            <p class="px-4 pb-4 text-xs text-slate-400">Montants en FCFA. Le fichier SEPA ne reprend que les bulletins approuvés ; il est refusé si un salarié concerné n'a pas d'IBAN.</p>
+          </div>
+        }
+      }
     </div>
   `
 })
@@ -146,6 +191,8 @@ export class PayrollComponent implements OnInit {
     successMessage = signal('');
     jobProgress = signal<number | null>(null);
     activeJobId = signal(0);
+    missing = signal<MissingPayslip[]>([]);
+    book = signal<PayrollBook | null>(null);
 
     selectedMonth: number = 0;
     selectedYear: number = 0;
@@ -186,6 +233,63 @@ export class PayrollComponent implements OnInit {
                 this.errorMessage.set(this.extractError(err) || 'Impossible de charger les bulletins.');
             }
         });
+        const month = Number(this.selectedMonth), year = Number(this.selectedYear);
+        this.apiService.getMissingPayslips(month, year).subscribe({ next: (m) => this.missing.set(m), error: () => this.missing.set([]) });
+        this.apiService.getPayrollBook(month, year).subscribe({ next: (b) => this.book.set(b), error: () => this.book.set(null) });
+    }
+
+    generateFor(employeeId: number, name: string): void {
+        this.errorMessage.set('');
+        this.successMessage.set('');
+        this.apiService.generateEmployeePayslip(employeeId, Number(this.selectedMonth), Number(this.selectedYear)).subscribe({
+            next: () => {
+                this.successMessage.set(`Bulletin de ${name} généré (brouillon).`);
+                this.loadPayslips();
+            },
+            error: (err) => this.errorMessage.set(this.extractError(err) || 'Génération impossible.')
+        });
+    }
+
+    downloadBook(format: 'csv' | 'pdf'): void {
+        const month = Number(this.selectedMonth), year = Number(this.selectedYear);
+        this.apiService.downloadPayrollBook(month, year, format).subscribe({
+            next: (blob) => this.saveBlob(blob, `livre_de_paie_${year}_${String(month).padStart(2, '0')}.${format}`),
+            error: (err) => this.showBlobError(err, 'Téléchargement du livre de paie impossible.')
+        });
+    }
+
+    downloadSepa(): void {
+        const month = Number(this.selectedMonth), year = Number(this.selectedYear);
+        this.apiService.downloadSepa(month, year).subscribe({
+            next: (blob) => this.saveBlob(blob, `virements_${year}_${String(month).padStart(2, '0')}.xml`),
+            error: (err) => this.showBlobError(err, 'Fichier de virement impossible à générer.')
+        });
+    }
+
+    private saveBlob(blob: Blob, filename: string): void {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // En téléchargement (responseType blob), le corps d'erreur JSON arrive sous forme de Blob.
+    private showBlobError(err: any, fallback: string): void {
+        this.successMessage.set('');
+        if (err?.error instanceof Blob) {
+            err.error.text().then((t: string) => {
+                try {
+                    const body = JSON.parse(t);
+                    this.errorMessage.set(body.error || body.message || fallback);
+                } catch {
+                    this.errorMessage.set(fallback);
+                }
+            });
+            return;
+        }
+        this.errorMessage.set(this.extractError(err) || fallback);
     }
 
     runPayroll(): void {

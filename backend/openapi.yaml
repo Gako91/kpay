@@ -1110,11 +1110,75 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /contracts/{id}/end:
+    put:
+      summary: Clore un contrat
+      description: Rôle admin ou payroll_officer. La date de fin ne peut pas précéder le début du contrat.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [end_date]
+              properties:
+                end_date: { type: string, format: date, example: '2026-06-30' }
+      responses:
+        '200':
+          description: Contrat clos
+        '400':
+          description: Date invalide
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payroll/run-employee:
+    post:
+      summary: Générer le bulletin d'un seul salarié
+      description: |
+        Pour un salarié oublié lors de la paie du mois (contrat saisi après coup). Contrat en
+        vigueur sur la période, primes du mois, carence et règles de la période. Refusé (422)
+        si le salarié a déjà un bulletin sur la période. Permission `payroll.run`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employee_id, month, year]
+              properties:
+                employee_id: { type: integer }
+                month: { type: integer }
+                year: { type: integer }
+      responses:
+        '201':
+          description: Bulletin créé en brouillon
+        '422':
+          description: Bulletin déjà existant ou aucun contrat sur la période
+
+  /payroll/missing:
+    get:
+      summary: Salariés sous contrat sur la période sans bulletin
+      parameters:
+        - { name: month, in: query, required: true, schema: { type: integer } }
+        - { name: year, in: query, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Liste {employee_id, full_name}
+
   /exports/sepa:
     get:
-      summary: Exporter les ordres de virement bancaire SEPA XML
-      description: Génère un fichier XML pain.001 pour les virements de salaires.
+      summary: Exporter les ordres de virement bancaire SEPA XML du mois
+      description: |
+        Virements des bulletins APPROUVÉS de la période, montant = net à payer. Refusé (422)
+        s'il n'y a aucun bulletin approuvé ou si un salarié concerné n'a pas d'IBAN.
+      parameters:
+        - { name: month, in: query, required: false, schema: { type: integer } }
+        - { name: year, in: query, required: false, schema: { type: integer } }
       responses:
+        '422':
+          description: Aucun bulletin approuvé, ou IBAN manquant (liste des salariés)
         '200':
           description: Fichier XML SEPA
           content:

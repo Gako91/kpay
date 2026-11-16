@@ -21,6 +21,8 @@
 - **Déclarations sociales** : DISA annuelle CNPS au format d'entrée E-DISA (.xls), registre scellé (SHA-256 + chaînage)
 - **Documents OpenAPI / Swagger UI** : Spécification complète et interface interactive sur `/docs`
 - **Authentification JWT** : Connexion via `POST /auth/login` (token Bearer JWT, RBAC admin / payroll_officer / accountant / employee), fallback clé API (`X-Api-Key`)
+- **Dossier salarié** : contrats (avenant, clôture), primes et retenues, relevés d'heures depuis la page Employés ; la paie utilise le contrat en vigueur sur la période
+- **Carence maladie** : les jours de carence (Paramètres RH) sont retenus sur la paie des arrêts maladie approuvés (salaire de base / 30 par jour)
 - **Workflow d'approbation** : Bulletins brouillon → soumis → approuvé → payé ; un brouillon (y compris rejeté) peut être recalculé
 - **Détail figé** : chaque retenue (code, part, assiette, taux, montant) est enregistrée avec le bulletin (`payslip_line`) ; le PDF et les déclarations lisent ce détail au lieu de recalculer
 - **Journal d'audit** : Traçabilité des actions sensibles (login, paie, approbations...)
@@ -201,6 +203,9 @@ Routes publiques (aucune authentification) : `/`, `/health*`, `/metrics`, `/docs
 | ------- | ---------------------------- | ------------------------------------------------------------- |
 | `POST`  | `/payroll/calculate`         | Calcule la paie pour un employé (sans sauvegarder)            |
 | `POST`  | `/payroll/run`               | Génère et sauvegarde la paie mensuelle pour tous les employés |
+| `POST`  | `/payroll/run-employee`      | Génère le bulletin d'un salarié oublié (contrat saisi après coup) |
+| `GET`   | `/payroll/missing`           | Salariés sous contrat sur la période sans bulletin            |
+| `PUT`   | `/contracts/:id/end`         | Clôt un contrat (un nouveau contrat clôt le précédent la veille) |
 | `GET`   | `/payslips/:id`              | Consulte un bulletin de paie                                  |
 | `GET`   | `/payslips/:id/pdf`          | Télécharge le bulletin au format PDF                          |
 | `GET`   | `/payslips/:id/lines`        | Détail figé des retenues (code, assiette, taux, montant)      |
@@ -230,7 +235,7 @@ Routes publiques (aucune authentification) : `/`, `/health*`, `/metrics`, `/docs
 | Méthode | Endpoint                 | Description                                   |
 | ------- | ------------------------ | --------------------------------------------- |
 | `GET`   | `/exports/employees/csv` | Exporte les employés en CSV                   |
-| `GET`   | `/exports/sepa`          | Génère un fichier XML SEPA pour les virements |
+| `GET`   | `/exports/sepa?month=&year=` | Virements SEPA XML des bulletins approuvés (net à payer) |
 | `GET`   | `/exports/disa/preview?year=` | Aperçu DISA : lignes E-DISA et anomalies |
 | `POST`  | `/exports/disa`          | Génère et scelle le fichier E-DISA de l'année |
 | `GET`   | `/exports/declarations`  | Registre des déclarations scellées            |

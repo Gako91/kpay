@@ -113,6 +113,10 @@ pub fn (mut app App) create_employee(mut ctx Context) veb.Result {
 // GET /contracts/:employee_id
 @['/contracts/:employee_id']
 pub fn (app &App) get_contract(mut ctx Context, employee_id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(employee_id, 'employee_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
@@ -127,6 +131,10 @@ pub fn (app &App) get_contract(mut ctx Context, employee_id int) veb.Result {
 // get_employee_contracts GET /employees/:id/contracts - Historique des contrats d'un employé
 @['/employees/:id/contracts']
 pub fn (app &App) get_employee_contracts(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer', 'accountant']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	dto.validate_id(id, 'employee_id') or {
 		ctx.res.set_status(.bad_request)
 		return ctx.json(dto.error_response(err.msg()))
@@ -245,6 +253,10 @@ pub fn (mut app App) delete_employee(mut ctx Context, id int) veb.Result {
 // create_contract POST /contracts - Créer un contrat pour un employé
 @['/contracts'; post]
 pub fn (mut app App) create_contract(mut ctx Context) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
 	body := ctx.req.data
 	contract := json2.decode[models.Contract](body) or {
 		ctx.res.set_status(.bad_request)
@@ -274,11 +286,67 @@ pub fn (mut app App) create_contract(mut ctx Context) veb.Result {
 		start_date: effective_start
 	}
 
+	// Un nouveau contrat (avenant) remplace le précédent : les contrats encore ouverts
+	// à sa date de début sont clos la veille. Sinon, à la clôture du nouveau contrat,
+	// l'ancien redeviendrait « en vigueur » et la paie continuerait.
+	day_before := effective_start.add_days(-1)
+	for prev in app.repo.get_contracts_by_employee(ready.employee_id, ctx.user_org) {
+		if prev.start_date >= effective_start {
+			continue
+		}
+		still_open := if end := prev.end_date { end >= effective_start } else { true }
+		if still_open {
+			app.repo.end_contract(prev.id, day_before, ctx.user_org) or {
+				ctx.res.set_status(.internal_server_error)
+				return ctx.json(dto.error_response('Impossible de clore le contrat précédent : ${err}'))
+			}
+		}
+	}
+
 	new_id := app.contract_svc.create(ready) or {
 		ctx.res.set_status(.internal_server_error)
 		return ctx.json(dto.error_response(err.msg()))
 	}
 
+	app.audit_action(mut ctx, 'contract.create', 'contract', new_id, 'Contrat de l\'employé ${ready.employee_id} : base ${ready.base_salary}')
 	ctx.res.set_status(.created)
 	return ctx.json(dto.ApiResponse{ success: true, data: '${new_id}', message: 'Contrat créé' })
+}
+
+// EndContractRequest est le corps de PUT /contracts/:id/end.
+struct EndContractRequest {
+	end_date string // 'YYYY-MM-DD'
+}
+
+// end_contract PUT /contracts/:id/end {"end_date":"2026-06-30"} - Clore un contrat
+@['/contracts/:id/end'; put]
+pub fn (mut app App) end_contract(mut ctx Context, id int) veb.Result {
+	if !ctx.has_role(['admin', 'payroll_officer']) {
+		ctx.res.set_status(.forbidden)
+		return ctx.json(dto.error_response('Accès refusé — rôle insuffisant'))
+	}
+	req := json2.decode[EndContractRequest](ctx.req.data) or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('JSON invalide'))
+	}
+	dto.validate_iso_date(req.end_date, 'end_date') or {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	contract := app.repo.get_contract_by_id(id, ctx.user_org) or {
+		ctx.res.set_status(.not_found)
+		return ctx.json(dto.error_response('Contrat introuvable'))
+	}
+	end := time.parse_format(req.end_date, 'YYYY-MM-DD') or { time.Time{} }
+	start_day := contract.start_date.custom_format('YYYY-MM-DD')
+	if req.end_date < start_day {
+		ctx.res.set_status(.bad_request)
+		return ctx.json(dto.error_response('La date de fin ne peut pas précéder le début du contrat (${start_day})'))
+	}
+	app.repo.end_contract(id, end, ctx.user_org) or {
+		ctx.res.set_status(.internal_server_error)
+		return ctx.json(dto.error_response(err.msg()))
+	}
+	app.audit_action(mut ctx, 'contract.end', 'contract', id, 'Fin au ${req.end_date}')
+	return ctx.json(dto.ApiResponse{ success: true, data: '${id}', message: 'Contrat clos au ${req.end_date}' })
 }

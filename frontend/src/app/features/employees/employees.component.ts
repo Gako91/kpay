@@ -5,11 +5,12 @@ import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Employee } from '../../core/models/kpay.models';
+import { EmployeeFileComponent } from './employee-file.component';
 
 @Component({
     selector: 'app-employees',
     standalone: true,
-    imports: [FormsModule],
+    imports: [FormsModule, EmployeeFileComponent],
     template: `
     <div class="space-y-6">
       @if (errorMessage()) {
@@ -39,7 +40,7 @@ import { Employee } from '../../core/models/kpay.models';
               <th>Manager (N+1)</th>
               <th>Parts Fiscales</th>
               <th>Statut</th>
-              @if (canCreateEmployee()) { <th></th> }
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -58,11 +59,12 @@ import { Employee } from '../../core/models/kpay.models';
                     {{ emp.is_active ? 'Actif' : 'Inactif' }}
                   </span>
                 </td>
-                @if (canCreateEmployee()) {
-                  <td class="px-4 py-3.5 text-right">
-                    <button (click)="openEdit(emp)" class="btn btn-secondary btn-sm">Modifier</button>
-                  </td>
-                }
+                <td class="px-4 py-3.5 text-right whitespace-nowrap">
+                  <button (click)="fileOf.set(emp)" class="btn btn-secondary btn-sm">Dossier</button>
+                  @if (canCreateEmployee()) {
+                    <button (click)="openEdit(emp)" class="btn btn-secondary btn-sm ml-1.5">Modifier</button>
+                  }
+                </td>
               </tr>
             } @empty {
               <tr>
@@ -74,6 +76,10 @@ import { Employee } from '../../core/models/kpay.models';
           </tbody>
         </table>
       </div>
+
+      @if (fileOf(); as f) {
+        <app-employee-file [employee]="f" [canEdit]="canCreateEmployee()" (closed)="fileOf.set(null)"/>
+      }
 
       <!-- Modale de Création -->
       @if (showModal()) {
@@ -171,6 +177,7 @@ export class EmployeesComponent implements OnInit {
     employeesById = signal<Map<number, string>>(new Map());
     showModal = signal(false);
     editingId = signal<number | null>(null);
+    fileOf = signal<Employee | null>(null);
     errorMessage = signal('');
     formError = signal('');
 

@@ -354,3 +354,53 @@ export interface PayslipLine {
     rate: number;
     amount: number;
 }
+
+// --- Dossier salarié : primes/retenues et relevés d'heures ---
+export interface Adjustment {
+    id: number;
+    organization_id: number;
+    employee_id: number;
+    month: number;
+    year: number;
+    amount: number;       // positif = prime, négatif = retenue (FCFA)
+    description: string;
+    date?: string;
+}
+
+export interface Timesheet {
+    id: number;
+    organization_id: number;
+    employee_id: number;
+    month: number;
+    year: number;
+    hours_worked: number;
+    overtime_h: number;
+}
+
+// --- Livre de paie ---
+export interface PayrollBookItem {
+    payslip_id: number;
+    employee_id: number;
+    matricule: string;
+    full_name: string;
+    position: string;
+    gross_amount: number;
+    total_taxes: number;
+    net_amount: number;
+    is_paid: boolean;
+}
+
+export interface PayrollBook {
+    month: number;
+    year: number;
+    total_employees: number;
+    total_gross: number;
+    total_taxes: number;
+    total_net: number;
+    items: PayrollBookItem[];
+}
+
+export interface MissingPayslip {
+    employee_id: number;
+    full_name: string;
+}

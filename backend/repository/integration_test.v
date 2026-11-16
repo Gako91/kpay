@@ -331,3 +331,55 @@ fn test_payslip_lines_frozen_and_replaced() ! {
 	r.db.exec_param_many('DELETE FROM payslip WHERE id = \$1', [id.str()])!
 	assert r.get_payslip_lines(id, org_id).len == 0
 }
+
+// Contrat en vigueur sur une période : avenant, départ, mois passés ; clôture d'un contrat.
+fn test_contract_for_period_and_end() ! {
+	mut r := open_test_db() or { return }
+	defer {
+		r.close()
+	}
+	org_id := new_test_org(mut r)
+	emp_id := r.create_employee(new_test_employee(org_id))!
+	first := r.create_contract(models.Contract{
+		organization_id: org_id
+		employee_id:     emp_id
+		base_salary:     300000
+		start_date:      time.Time{ year: 2025, month: 1, day: 1 }
+	})!
+	second := r.create_contract(models.Contract{
+		organization_id: org_id
+		employee_id:     emp_id
+		base_salary:     400000
+		start_date:      time.Time{ year: 2026, month: 3, day: 1 }
+	})!
+	// Avant l'avenant : premier contrat ; après : le plus récent
+	c1 := r.get_contract_for_period(emp_id, 2, 2026, org_id) or { panic('aucun contrat en 02/2026') }
+	assert c1.id == first
+	c2 := r.get_contract_for_period(emp_id, 4, 2026, org_id) or { panic('aucun contrat en 04/2026') }
+	assert c2.id == second
+	// Avant toute embauche : aucun contrat
+	if _ := r.get_contract_for_period(emp_id, 12, 2024, org_id) {
+		assert false, 'contrat trouvé avant l’embauche'
+	}
+	// Clôture du second au 30/06/2026 : juin couvert, juillet non
+	r.end_contract(second, time.Time{ year: 2026, month: 6, day: 30 }, org_id)!
+	c3 := r.get_contract_for_period(emp_id, 6, 2026, org_id) or { panic('aucun contrat en 06/2026') }
+	assert c3.id == second
+	// En juillet, le premier contrat (jamais clos) reprendrait : il faut le clore aussi
+	r.end_contract(first, time.Time{ year: 2026, month: 2, day: 28 }, org_id)!
+	if _ := r.get_contract_for_period(emp_id, 7, 2026, org_id) {
+		assert false, 'contrat trouvé après le départ'
+	}
+	// Isolation : clôture refusée depuis une autre organisation
+	mut refused := false
+	r.end_contract(second, time.Time{ year: 2026, month: 1, day: 1 }, org_id + 100000) or {
+		refused = true
+	}
+	assert refused
+	// Relevés d'heures : du plus récent au plus ancien
+	r.create_timesheet(models.Timesheet{ organization_id: org_id, employee_id: emp_id, month: 1, year: 2026, hours_worked: 160 })!
+	r.create_timesheet(models.Timesheet{ organization_id: org_id, employee_id: emp_id, month: 11, year: 2025, hours_worked: 150 })!
+	r.create_timesheet(models.Timesheet{ organization_id: org_id, employee_id: emp_id, month: 3, year: 2026, hours_worked: 170 })!
+	ts := r.get_timesheets_by_employee(emp_id, org_id)
+	assert ts.map('${it.year}-${it.month}') == ['2026-3', '2026-1', '2025-11']
+}

@@ -83,3 +83,13 @@ pub fn (r &Repository) get_adjustment_by_id(adj_id int, org_id int) ?models.Adju
 	}
 	return result[0]
 }
+// get_timesheets_by_employee retourne les relevés d'heures d'un salarié, du plus récent au plus ancien.
+pub fn (r &Repository) get_timesheets_by_employee(emp_id int, org_id int) []models.Timesheet {
+	mut rows := sql r.db {
+		select from models.Timesheet where employee_id == emp_id && organization_id == org_id
+	} or { [] }
+	rows.sort_with_compare(fn (a &models.Timesheet, b &models.Timesheet) int {
+		return (b.year * 12 + b.month) - (a.year * 12 + a.month)
+	})
+	return rows
+}
