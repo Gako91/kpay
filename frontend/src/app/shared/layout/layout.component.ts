@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterOutlet, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -8,9 +8,15 @@ import { AuthService } from '../../core/services/auth.service';
     standalone: true,
     imports: [RouterOutlet, RouterLink, RouterLinkActive],
     template: `
-    <div class="min-h-screen flex bg-slate-100">
-      <!-- Sidebar -->
-      <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between">
+    <div class="h-screen flex bg-slate-100">
+      <!-- Fond assombri derrière le menu ouvert (écrans < 1024 px) -->
+      @if (menuOpen()) {
+        <div class="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" (click)="menuOpen.set(false)"></div>
+      }
+
+      <!-- Sidebar : fixe à partir de 1024 px, tiroir en dessous -->
+      <aside class="fixed inset-y-0 left-0 z-40 w-64 shrink-0 overflow-y-auto bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 lg:static lg:translate-x-0"
+             [class.-translate-x-full]="!menuOpen()">
         <div>
           <!-- Logo -->
           <div class="flex items-center gap-3 px-4 py-5">
@@ -23,8 +29,8 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </div>
 
-          <!-- Navigation -->
-          <nav class="px-3 space-y-0.5">
+          <!-- Navigation (un choix referme le tiroir sur petit écran) -->
+          <nav class="px-3 space-y-0.5" (click)="menuOpen.set(false)">
             <a routerLink="/dashboard" routerLinkActive="bg-blue-50 text-blue-700" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium text-slate-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 00-1 1m-6 0h6"/></svg>
               Tableau de bord
@@ -121,12 +127,17 @@ import { AuthService } from '../../core/services/auth.service';
       </aside>
 
       <!-- Zone Principale -->
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
         <!-- Header -->
-        <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8">
-          <h2 class="text-base font-semibold text-slate-900 tracking-tight">Système de paie KPay</h2>
-          <div class="flex items-center gap-4 text-sm">
-            <span class="inline-flex items-center gap-1.5 text-slate-500 tabular-nums">
+        <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between gap-3 px-4 sm:px-8">
+          <div class="flex items-center gap-3 min-w-0">
+            <button type="button" (click)="menuOpen.set(true)" class="lg:hidden -ml-1 p-2 rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Ouvrir le menu">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h2 class="text-base font-semibold text-slate-900 tracking-tight truncate">Système de paie KPay</h2>
+          </div>
+          <div class="hidden sm:flex items-center gap-4 text-sm">
+            <span class="inline-flex items-center gap-1.5 text-slate-500 tabular-nums whitespace-nowrap">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
               {{ todayLabel }}
             </span>
@@ -134,7 +145,7 @@ import { AuthService } from '../../core/services/auth.service';
         </header>
 
         <!-- Contenu des pages -->
-        <main class="flex-1 overflow-y-auto p-8">
+        <main class="flex-1 overflow-y-auto p-4 sm:p-8">
           <router-outlet></router-outlet>
         </main>
       </div>
@@ -143,6 +154,9 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class LayoutComponent {
     authService = inject(AuthService);
+
+    // Tiroir de navigation sur petit écran (toujours visible à partir de 1024 px)
+    menuOpen = signal(false);
 
     todayLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 

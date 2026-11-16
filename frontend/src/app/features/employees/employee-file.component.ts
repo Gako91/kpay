@@ -17,8 +17,8 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
     imports: [FormsModule, DecimalPipe],
     template: `
     <div class="modal-overlay">
-      <div class="modal max-w-3xl! max-h-[90vh] overflow-y-auto">
-        <div class="flex items-start justify-between">
+      <div class="modal max-w-3xl!">
+        <div class="flex items-start justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-900 tracking-tight">Dossier de {{ employee.first_name }} {{ employee.last_name }}</h2>
             <p class="text-sm text-slate-500">Ces éléments sont pris en compte au prochain calcul ou recalcul de la paie.</p>
@@ -26,7 +26,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
           <button (click)="closed.emit()" class="btn btn-secondary btn-sm">Fermer</button>
         </div>
 
-        <div class="flex gap-2 mt-4">
+        <div class="flex flex-wrap gap-2 mt-4">
           <button (click)="tab.set('contracts')" class="chip" [class]="tab() === 'contracts' ? 'chip-active' : 'chip-idle'">Contrats</button>
           <button (click)="tab.set('adjustments')" class="chip" [class]="tab() === 'adjustments' ? 'chip-active' : 'chip-idle'">Primes &amp; retenues</button>
           <button (click)="tab.set('timesheets')" class="chip" [class]="tab() === 'timesheets' ? 'chip-active' : 'chip-idle'">Heures</button>
@@ -41,7 +41,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
 
         <!-- ========== CONTRATS ========== -->
         @if (tab() === 'contracts') {
-          <table class="data-table mt-4">
+          <div class="overflow-x-auto mt-4"><table class="data-table">
             <thead>
               <tr><th>Début</th><th>Fin</th><th class="num">Salaire de base</th><th class="num">Taux horaire</th><th>Statut</th><th></th></tr>
             </thead>
@@ -73,12 +73,12 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
                 <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Aucun contrat : ce salarié ne sera pas payé.</td></tr>
               }
             </tbody>
-          </table>
+          </table></div>
 
           @if (canEdit) {
             <form (ngSubmit)="createContract()" class="card p-4 mt-4 space-y-3">
               <h3 class="card-title">{{ contracts().length ? 'Nouveau contrat (avenant)' : 'Premier contrat' }}</h3>
-              <div class="grid grid-cols-3 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label class="label">Salaire de base mensuel (FCFA)</label>
                   <input type="number" min="1" [(ngModel)]="newContract.base_salary" name="base" required class="input"/>
@@ -104,7 +104,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
 
         <!-- ========== PRIMES & RETENUES ========== -->
         @if (tab() === 'adjustments') {
-          <table class="data-table mt-4">
+          <div class="overflow-x-auto mt-4"><table class="data-table">
             <thead>
               <tr><th>Période</th><th>Libellé</th><th class="num">Montant (FCFA)</th><th></th></tr>
             </thead>
@@ -124,12 +124,12 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
                 <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Aucune prime ni retenue.</td></tr>
               }
             </tbody>
-          </table>
+          </table></div>
 
           @if (canEdit) {
             <form (ngSubmit)="createAdjustment()" class="card p-4 mt-4 space-y-3">
               <h3 class="card-title">Ajouter une prime ou une retenue</h3>
-              <div class="grid grid-cols-4 gap-3">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label class="label">Mois</label>
                   <select [(ngModel)]="newAdj.month" name="adjMonth" class="select">
@@ -165,7 +165,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
 
         <!-- ========== HEURES ========== -->
         @if (tab() === 'timesheets') {
-          <table class="data-table mt-4">
+          <div class="overflow-x-auto mt-4"><table class="data-table">
             <thead>
               <tr><th>Période</th><th class="num">Heures travaillées</th><th class="num">Heures sup.</th><th></th></tr>
             </thead>
@@ -186,12 +186,12 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
                 <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Aucun relevé d'heures.</td></tr>
               }
             </tbody>
-          </table>
+          </table></div>
 
           @if (canEdit) {
             <form (ngSubmit)="saveTimesheet()" class="card p-4 mt-4 space-y-3">
               <h3 class="card-title">Saisir le relevé d'un mois</h3>
-              <div class="grid grid-cols-4 gap-3">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label class="label">Mois</label>
                   <select [(ngModel)]="newTs.month" name="tsMonth" class="select">

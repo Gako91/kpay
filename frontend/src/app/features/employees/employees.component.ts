@@ -29,41 +29,51 @@ import { EmployeeFileComponent } from './employee-file.component';
       </div>
 
       <!-- Tableau des Employés -->
-      <div class="card overflow-hidden">
+      <!-- Colonnes secondaires masquées selon la largeur ; l'email et le statut
+           passent sous le nom quand leur colonne est masquée -->
+      <div class="card overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th class="hidden md:table-cell">ID</th>
               <th>Nom & Prénom</th>
-              <th>Email</th>
-              <th>N° CNPS</th>
-              <th>Manager (N+1)</th>
-              <th>Parts Fiscales</th>
-              <th>Statut</th>
+              <th class="hidden xl:table-cell">Email</th>
+              <th class="hidden md:table-cell">N° CNPS</th>
+              <th class="hidden 2xl:table-cell">Manager (N+1)</th>
+              <th class="hidden 2xl:table-cell">Parts Fiscales</th>
+              <th class="hidden sm:table-cell">Statut</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             @for (emp of employees(); track emp.id) {
               <tr>
-                <td class="px-4 py-3.5 font-mono text-xs text-slate-400">#{{ emp.id }}</td>
-                <td class="px-4 py-3.5 font-medium text-slate-900">{{ emp.last_name }} {{ emp.first_name }}</td>
-                <td class="px-4 py-3.5 text-slate-500">{{ emp.email }}</td>
-                <td class="px-4 py-3.5 font-mono text-xs">
+                <td class="hidden md:table-cell px-4 py-3.5 font-mono text-xs text-slate-400">#{{ emp.id }}</td>
+                <td class="px-4 py-3.5">
+                  <div class="font-medium text-slate-900">{{ emp.last_name }} {{ emp.first_name }}</div>
+                  <div class="xl:hidden text-xs text-slate-500 break-all">{{ emp.email }}</div>
+                  <div class="sm:hidden mt-1">
+                    <span [class]="emp.is_active ? 'badge badge-emerald' : 'badge badge-slate'">{{ emp.is_active ? 'Actif' : 'Inactif' }}</span>
+                  </div>
+                </td>
+                <td class="hidden xl:table-cell px-4 py-3.5 text-slate-500">{{ emp.email }}</td>
+                <td class="hidden md:table-cell px-4 py-3.5 font-mono text-xs">
                   @if (emp.cnps_number) { {{ emp.cnps_number }} } @else { <span class="badge badge-amber">À renseigner</span> }
                 </td>
-                <td class="px-4 py-3.5 text-slate-500">{{ managerName(emp.manager_id) }}</td>
-                <td class="px-4 py-3.5">{{ emp.tax_parts }}</td>
-                <td class="px-4 py-3.5">
+                <td class="hidden 2xl:table-cell px-4 py-3.5 text-slate-500">{{ managerName(emp.manager_id) }}</td>
+                <td class="hidden 2xl:table-cell px-4 py-3.5">{{ emp.tax_parts }}</td>
+                <td class="hidden sm:table-cell px-4 py-3.5">
                   <span [class]="emp.is_active ? 'badge badge-emerald' : 'badge badge-slate'">
                     {{ emp.is_active ? 'Actif' : 'Inactif' }}
                   </span>
                 </td>
-                <td class="px-4 py-3.5 text-right whitespace-nowrap">
-                  <button (click)="fileOf.set(emp)" class="btn btn-secondary btn-sm">Dossier</button>
-                  @if (canCreateEmployee()) {
-                    <button (click)="openEdit(emp)" class="btn btn-secondary btn-sm ml-1.5">Modifier</button>
-                  }
+                <td class="px-4 py-3.5">
+                  <div class="flex flex-col sm:flex-row gap-1.5 justify-end items-end">
+                    <button (click)="fileOf.set(emp)" class="btn btn-secondary btn-sm">Dossier</button>
+                    @if (canCreateEmployee()) {
+                      <button (click)="openEdit(emp)" class="btn btn-secondary btn-sm">Modifier</button>
+                    }
+                  </div>
                 </td>
               </tr>
             } @empty {
@@ -87,7 +97,7 @@ import { EmployeeFileComponent } from './employee-file.component';
           <div class="modal">
             <h2 class="text-lg font-semibold text-slate-900 tracking-tight">{{ editingId() ? 'Modifier l\'employé' : 'Ajouter un Employé' }}</h2>
             <form (ngSubmit)="saveEmployee()" class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="label">Nom</label>
                   <input type="text" [(ngModel)]="newEmployee.last_name" name="lastName" required class="input"/>
@@ -101,7 +111,7 @@ import { EmployeeFileComponent } from './employee-file.component';
                 <label class="label">Email Professionnel</label>
                 <input type="email" [(ngModel)]="newEmployee.email" name="email" required class="input"/>
               </div>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="label">Téléphone</label>
                   <input type="tel" [(ngModel)]="newEmployee.phone" name="phone" class="input" placeholder="+225 07 00 00 00 00"/>
@@ -111,7 +121,7 @@ import { EmployeeFileComponent } from './employee-file.component';
                   <input type="text" [(ngModel)]="newEmployee.address" name="address" class="input" placeholder="Cocody, Abidjan"/>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="label">IBAN</label>
                   <input type="text" [(ngModel)]="newEmployee.iban" name="iban" class="input" placeholder="CI93 0100 0100 1234 5678 9012 34"/>
@@ -121,7 +131,7 @@ import { EmployeeFileComponent } from './employee-file.component';
                   <input type="text" [(ngModel)]="newEmployee.bic" name="bic" class="input" placeholder="BNFACIXX"/>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="label">Parts Fiscales (IGR)</label>
                   <input type="number" step="0.5" [(ngModel)]="newEmployee.tax_parts" name="taxParts" required class="input"/>
@@ -136,7 +146,7 @@ import { EmployeeFileComponent } from './employee-file.component';
                   </select>
                 </div>
               </div>
-              <div class="grid grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label class="label">N° CNPS</label>
                   <input type="text" [(ngModel)]="newEmployee.cnps_number" name="cnps" class="input font-mono" placeholder="12 chiffres" maxlength="16"/>

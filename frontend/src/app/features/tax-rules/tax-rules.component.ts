@@ -48,7 +48,7 @@ import { TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, TaxLine 
 
       @if (tab() === 'components') {
         <!-- Composantes -->
-        <div class="card overflow-hidden">
+        <div class="card overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
@@ -110,7 +110,7 @@ import { TaxComponent, TaxBracket, TaxImpactRequest, TaxImpactResponse, TaxLine 
           </button>
           <button (click)="openCreateBracket()" class="btn btn-primary ml-auto">+ Tranche</button>
         </div>
-        <div class="card overflow-hidden">
+        <div class="card overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>

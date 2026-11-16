@@ -62,7 +62,7 @@ import { Employee, LeaveBalance, LeaveRequest } from '../../core/models/kpay.mod
       }
 
       <!-- Liste des demandes -->
-      <div class="card overflow-hidden">
+      <div class="card overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>

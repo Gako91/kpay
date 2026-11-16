@@ -29,7 +29,7 @@ import { ProfileChangeRequest } from '../../core/models/kpay.models';
         <div class="alert alert-success">{{ infoMessage() }}</div>
       }
 
-      <div class="card overflow-hidden">
+      <div class="card overflow-x-auto">
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>

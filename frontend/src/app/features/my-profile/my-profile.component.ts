@@ -31,7 +31,7 @@ import { Employee, ProfileChangeRequest } from '../../core/models/kpay.models';
 
       <div class="grid lg:grid-cols-2 gap-6">
         <!-- Informations actuelles -->
-        <div class="card overflow-hidden">
+        <div class="card overflow-x-auto">
           <div class="card-head">
             <h2 class="card-title">Informations actuelles</h2>
           </div>
@@ -47,7 +47,7 @@ import { Employee, ProfileChangeRequest } from '../../core/models/kpay.models';
         </div>
 
         <!-- Demander une modification -->
-        <div class="card overflow-hidden">
+        <div class="card overflow-x-auto">
           <div class="card-head">
             <h2 class="card-title">Demander une modification</h2>
           </div>
@@ -75,7 +75,7 @@ import { Employee, ProfileChangeRequest } from '../../core/models/kpay.models';
       </div>
 
       <!-- Historique des demandes -->
-      <div class="card overflow-hidden">
+      <div class="card overflow-x-auto">
         <div class="card-head">
           <h2 class="card-title">Historique de mes demandes</h2>
         </div>

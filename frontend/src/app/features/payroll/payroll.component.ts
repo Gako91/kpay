@@ -68,7 +68,7 @@ import { Job, MissingPayslip, Payslip, PayrollBook } from '../../core/models/kpa
       }
 
       <!-- Bulletins -->
-      <div class="card overflow-hidden">
+      <div class="card overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>
@@ -136,7 +136,7 @@ import { Job, MissingPayslip, Payslip, PayrollBook } from '../../core/models/kpa
 
       <!-- Salariés sous contrat sans bulletin sur la période (contrat saisi après la paie…) -->
       @if (payslips().length > 0 && missing().length > 0) {
-        <div class="card overflow-hidden">
+        <div class="card overflow-x-auto">
           <div class="card-head">
             <h2 class="card-title">Salariés sans bulletin pour {{ selectedMonth }}/{{ selectedYear }}</h2>
           </div>
@@ -159,7 +159,7 @@ import { Job, MissingPayslip, Payslip, PayrollBook } from '../../core/models/kpa
       <!-- Livre de paie et virements -->
       @if (book(); as b) {
         @if (b.items.length > 0) {
-          <div class="card overflow-hidden">
+          <div class="card overflow-x-auto">
             <div class="card-head flex items-center justify-between flex-wrap gap-2">
               <h2 class="card-title">Livre de paie {{ b.month }}/{{ b.year }}</h2>
               <div class="flex gap-2">

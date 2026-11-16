@@ -21,7 +21,7 @@ import { ApiService } from '../../core/services/api.service';
         <div class="alert alert-success">{{ successMessage() }}</div>
       }
 
-      <div class="card overflow-hidden">
+      <div class="card overflow-x-auto">
         <div class="flex border-b border-slate-200 overflow-x-auto">
           @for (role of roles(); track role.role) {
             <button

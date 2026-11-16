@@ -54,7 +54,7 @@ import { ChainCheck, DeclarationExport, DisaIssue, DisaPreview } from '../../cor
         </div>
 
         @if (p.issues.length > 0) {
-          <div class="card overflow-hidden">
+          <div class="card overflow-x-auto">
             <div class="card-head">
               <h2 class="card-title">Anomalies à corriger</h2>
             </div>

@@ -55,7 +55,7 @@ import { Payslip } from '../../core/models/kpay.models';
       </div>
 
       <!-- Tableau -->
-      <div class="card overflow-hidden">
+      <div class="card overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>
